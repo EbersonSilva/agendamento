@@ -28,8 +28,8 @@ model Service {
 
 model Appointment {
   id        Int      @id @default(autoincrement())
-  startTime DateTime
-  endTime   DateTime
+  startTime DateTime @db.Timestamptz(3)
+  endTime   DateTime @db.Timestamptz(3)
   status    String   @default("pending") // Exemplo de status: pending, confirmed, canceled
   
   clientId  Int
@@ -38,7 +38,7 @@ model Appointment {
   serviceId Int
   service   Service  @relation(fields: [serviceId], references: [id])
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 }
 
 model StudioConfig{
