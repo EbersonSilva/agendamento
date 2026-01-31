@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String?       
+  passwordHash String
+  phone        String        @unique
+  isAdmin      Boolean       @default(false)
+  appointments Appointment[] // Relação: Um usuário tem muitos agendamentos
+}
+
+model Service {
+  id              Int           @id @default(autoincrement())
+  name            String
+  description     String?
+  price           Decimal       @db.Decimal(10, 2)
+  durationMinutes Int
+  appointments    Appointment[]
+}
+
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime
+  status    String   @default("pending") // Exemplo de status: pending, confirmed, canceled
+  
+  clientId  Int
+  client    User     @relation(fields: [clientId], references: [id])
+  
+  serviceId Int
+  service   Service  @relation(fields: [serviceId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model StudioConfig{
+  id            Int      @id @default(autoincrement())
+  openingTime   Int      @default(8)    // Hora de abertura do estúdio (formato 24h)
+  closingTime   Int      @default(18)   // Hora de fechamento do estúdio (formato 24h)
+  closedDays    Int[]    @default([0]) // Dias da semana em que o estúdio está fechado, ex: "0,6" para domingo e sábado
+  createdAt     DateTime @updatedAt
+}
