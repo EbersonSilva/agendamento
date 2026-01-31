@@ -38,3 +38,8 @@ npm install
 # Configure seu arquivo .env com a URL do banco de dados
 npx prisma migrate dev
 npm run dev
+
+### 2. Configuração do Frontend
+cd frontend
+npm install
+npm run dev
