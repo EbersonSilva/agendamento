@@ -7,10 +7,39 @@ export const AppointmentController = {
   // LISTAR AGENDAMENTOS (Visão da Dona)
    async index(req: Request, res: Response) {
     try {
+      const { status, date } = req.query;
+
+      const where: Record<string, unknown> = {};
+
+      const statusValue = Array.isArray(status) ? status[0] : status;
+      if (statusValue) {
+        const normalizedStatus = String(statusValue).toLowerCase();
+        if (normalizedStatus === 'scheduled') {
+          where.OR = [
+            { status: { equals: 'scheduled', mode: 'insensitive' } },
+            { status: { equals: 'confirmed', mode: 'insensitive' } }
+          ];
+        } else if (normalizedStatus !== 'all') {
+          // Se status não for 'all', filtra pelo status específico
+          where.status = { equals: String(statusValue), mode: 'insensitive' };
+        }
+        // Se for 'all', não adiciona filtro de status (retorna todos)
+      } else {
+        where.status = { equals: 'pending', mode: 'insensitive' };
+      }
+
+      if (date) {
+        const dateValue = Array.isArray(date) ? date[0] : date;
+        const searchDate = new Date(`${dateValue}T00:00:00`);
+        const startOfDay = new Date(searchDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(searchDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.startTime = { gte: startOfDay, lte: endOfDay };
+      }
+
       const appointments = await prisma.appointment.findMany({
-        where: {
-          status: 'scheduled'
-        },
+        where,
         include: {
           client: true,
           service: true
@@ -110,6 +139,13 @@ export const AppointmentController = {
     const { clientName, phone, serviceId, startTime } = req.body;
 
     try {
+      const normalizedPhone = String(phone || '').replace(/\D/g, '');
+      if (!normalizedPhone || (normalizedPhone.length !== 10 && normalizedPhone.length !== 11)) {
+        return res.status(400).json({
+          error: "Telefone inválido. Informe DDD + número (10 ou 11 dígitos)."
+        });
+      }
+
       // 1. BUSCA CONFIGURAÇÕES DO ESTÚDIO
       const config = await prisma.studioConfig.findFirst() || {
         openingTime: 8,
@@ -171,24 +207,15 @@ export const AppointmentController = {
         });
       }
 
-      // 5. TRATAMENTO DO CLIENTE (Onde estava dando erro no 'let')
-      let client;
-
-      client = await prisma.user.findUnique({
-        where: { phone: phone }
+      // 5. TRATAMENTO DO CLIENTE - Sempre cria um novo cliente
+      const client = await prisma.user.create({
+        data: {
+          name: clientName,
+          phone: normalizedPhone,
+          passwordHash: "",
+          isAdmin: false
+        }
       });
-
-      if (!client) {
-        client = await prisma.user.create({
-          data: {
-            name: clientName,
-            phone: phone,
-            email: `${phone.replace(/\D/g, '')}@estudio.com`, // Email técnico para o @unique
-            passwordHash: "",
-            isAdmin: false
-          }
-        });
-      }
 
       // 6. CRIAÇÃO DO AGENDAMENTO VINCULADO AO CLIENTE
       const appointment = await prisma.appointment.create({
@@ -208,41 +235,7 @@ export const AppointmentController = {
       return res.status(500).json({ error: "Erro ao processar agendamento" });
     }
   },
-
-  // LISTAR HORÁRIOS DISPONÍVEIS (Passo 2 do Fluxo da Cliente)
-  // async listAvailableTimes(req: Request, res: Response) {
-  //   const { date } = req.query; // Ex: 2026-01-31
-
-  //   const searchDate = new Date(date as string);
-  //   const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0));
-  //   const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999));
-
-  //   // 1. Busca agendamentos do dia que não estão cancelados
-  //   const appointments = await prisma.appointment.findMany({
-  //     where: {
-  //       startTime: { gte: startOfDay, lte: endOfDay },
-  //       status: { not: 'cancelled' }
-  //     }
-  //   });
-
-  //   // 2. Define a grade de horários (Ex: 08:00 às 18:00)
-  //   const allTimes = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
-
-  //   // 3. Filtra apenas os que não coincidem com o início de um agendamento existente
-  //   const availableTimes = allTimes.filter(time => {
-  //     const isOccupied = appointments.some(app => {
-  //       const appTime = new Date(app.startTime).toLocaleTimeString('pt-BR', {
-  //         hour: '2-digit',
-  //         minute: '2-digit'
-  //       });
-  //       return appTime === time;
-  //     });
-  //     return !isOccupied;
-  //   });
-
-  //   return res.json(availableTimes);
-  // },
-
+  // ATUALIZAR STATUS DO AGENDAMENTO (CONFIRMAR/REJEITAR via WhatsApp)
   async updateStatus(req: Request, res: Response) {
     const { id } = req.params;
     const { newStatus } = req.body; // "confirmed" ou "rejected"
@@ -283,4 +276,6 @@ export const AppointmentController = {
       return res.status(500).json({ error: "Erro ao cancelar agendamento" });
     }
   }
+
+  
 };

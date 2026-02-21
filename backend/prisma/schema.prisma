@@ -9,10 +9,9 @@ datasource db {
 
 model User {
   id           Int           @id @default(autoincrement())
-  name         String
-  email        String?       
-  passwordHash String
-  phone        String        @unique
+  name         String     
+  passwordHash String?
+  phone        String
   isAdmin      Boolean       @default(false)
   appointments Appointment[] // Relação: Um usuário tem muitos agendamentos
 }
@@ -23,6 +22,7 @@ model Service {
   description     String?
   price           Decimal       @db.Decimal(10, 2)
   durationMinutes Int
+  active         Boolean       @default(true)
   appointments    Appointment[]
 }
 
@@ -47,4 +47,11 @@ model StudioConfig{
   closingTime   Int      @default(18)   // Hora de fechamento do estúdio (formato 24h)
   closedDays    Int[]    @default([0]) // Dias da semana em que o estúdio está fechado, ex: "0,6" para domingo e sábado
   createdAt     DateTime @updatedAt
+}
+
+model ClosedDate {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date // Data específica de fechamento
+  reason      String?  // Motivo opcional (ex: "Férias", "Feriado")
+  createdAt   DateTime @default(now())
 }

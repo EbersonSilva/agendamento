@@ -1,205 +1,32 @@
-import { useEffect, useState } from 'react';
-import { api } from './service/api';
-import { CheckCircle, ArrowLeft, Clock, Calendar, User } from 'lucide-react';
-import { format, addDays, startOfToday } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { Booking } from "./components/Booking"
+import { DailySchedule } from "./components/DailySchedule"
+import { AllAppointments } from "./components/AllAppointments"
+import { Metrics } from "./components/Metrics"
+import { PendingAppointments } from "./components/PendingAppointments"
+import { AdminDashboard } from "./components/AdminDashboard"
+import { Settings} from "./components/Settings"
+import { ChangePassword } from "./components/ChangePassword"
+import { PrivateRoute } from "./components/PrivateRoute"
+import { Login } from "./components/Login"
 
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  durationMinutes: number;
-}
 
 export default function App() {
-  const [step, setStep] = useState(1);
-  const [services, setServices] = useState<Service[]>([]);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [clientName, setClientName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
-  const [selectedDate, setSelectedDate] = useState(new Date()); // O dia vindo do carrossel
-  const [appointmentDate, setAppointmentDate] = useState<Date | null>(null);
-  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
-  const [closedDays, setClosedDays] = useState<number[]>([]);
-
-
-  useEffect(() => {
-    api.get('/services').then(response => setServices(response.data));
-    api.get('/config').then(response => setClosedDays(response.data.closedDays || []));
-  }, []);
-
-  // Gera uma lista de dias para os próximos 14 dias
-  const daysRange = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
-
-  // Busca horários do backend sempre que mudar a data selecionada
-  useEffect(() => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const serviceParam = selectedService ? `&serviceId=${selectedService.id}` : '';
-    api.get(`/appointments/available?date=${dateStr}${serviceParam}`)
-      .then(res => setAvailableTimes(res.data));
-  }, [selectedDate, selectedService]);
-
-  
-
-  // Converte data local para ISO sem mudar o horário por fuso horário
-  const dateToISOLocal = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-  };
-
-  // Formata os dias para exibição no seletor horizontal
-  const handleFinalSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/appointments', {
-        clientName,
-        phone,
-        serviceId: selectedService.id,
-        startTime: dateToISOLocal(appointmentDate ?? selectedDate),
-      });
-      setStep(4);
-    } catch (err) {
-      alert(err.response?.data?.error || "Erro ao agendar");
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4 font-sans text-gray-900">
-      <div className="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-
-        {/* HEADER */}
-        <div className="bg-zinc-900 p-8 text-white text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Melissa Beaulty</h1>
-          <p className="text-zinc-400 text-sm mt-1">Sua melhor versão começa aqui</p>
-        </div>
-
-        <div className="p-8">
-          {/* STEP 1: SERVIÇOS */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                <span className="bg-zinc-100 p-2 rounded-lg text-sm">01</span> Escolha o Serviço
-              </h2>
-              {services.map(s => (
-                <button key={s.id} onClick={() => { setSelectedService(s); setStep(2); }}// Função fictícia para armazenar o serviço selecionado
-                  className="w-full text-left p-4 rounded-2xl border-2 border-gray-100 hover:border-zinc-900 transition-all group active:scale-95">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium group-hover:text-zinc-900">{s.name}</span>
-                    <span className="bg-zinc-100 px-3 py-1 rounded-full text-xs font-bold uppercase text-zinc-600">R$ {s.price}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">{s.durationMinutes} minutos de cuidado</p>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* STEP 2: HORÁRIO */}
-          {step === 2 && (
-            <div className="space-y-6">
-               <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                <span className="bg-zinc-100 p-2 rounded-lg text-sm">02</span> Escolha a Data e Horário
-              </h2>
-              <button onClick={() => setStep(1)} className="text-sm text-gray-500 flex items-center gap-1">
-                <ArrowLeft size={14} /> Voltar para trocar o servico
-              </button>
-              
-              <h2 className="text-xl font-bold">{format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })}</h2>
-
-
-              {/* Seletor de Dias Horizontal Real */}
-              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
-                {daysRange
-                  .filter(date => !closedDays.includes(date.getDay()))
-                  .map((date) => (
-                    <button
-                      key={date.toISOString()}
-                      onClick={() => setSelectedDate(date)}
-                      className={`flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center transition-all ${format(selectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-                        ? 'bg-zinc-900 text-white shadow-lg'
-                        : 'bg-zinc-50 text-gray-400 border border-gray-100'
-                        }`}
-                    >
-                      <span className="text-xs uppercase font-medium">{format(date, 'EEE', { locale: ptBR })}</span>
-                      <span className="text-xl font-bold">{format(date, 'dd')}</span>
-                    </button>
-                  ))}
-              </div>
-
-              {/* Grade de Horários Dinâmica */}
-              <div className="grid grid-cols-3 gap-3">
-                {availableTimes.length > 0 ? (
-                  availableTimes.map(time => (
-                    <button
-                      key={time}
-                      onClick={() => {
-                        const [h, m] = time.split(':');
-                        const finalDate = new Date(selectedDate);
-                        finalDate.setHours(Number(h), Number(m), 0, 0); // Ajusta horas e minutos sem segundos
-                        setAppointmentDate(finalDate); // Armazena a data e hora selecionadas
-                        setStep(3);
-                      }}
-                      className="py-3 text-center border-2 border-gray-100 rounded-xl hover:border-zinc-900 font-medium bg-white"
-                    >
-                      {time}
-                    </button>
-                  ))
-                ) : (
-                  <p className="col-span-3 text-center text-gray-500 py-4">Nenhum horário disponível para este dia.</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: IDENTIFICAÇÃO */}
-          {step === 3 && (
-            <div className="space-y-6">
-              <button onClick={() => setStep(2)} className="flex items-center text-sm text-gray-500 hover:text-black">
-                <ArrowLeft size={16} className="mr-1" /> Mudar horário
-              </button>
-              <h2 className="text-xl font-semibold tracking-tight">3. Quase lá! Quem é você?</h2>
-              <form onSubmit={handleFinalSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-1">Nome Completo</label>
-                  <input required type="text" onChange={e => setClientName(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-1">WhatsApp</label>
-                  <input required type="tel" onChange={e => setPhone(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" />
-                </div>
-                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                  <p className="text-xs text-zinc-400 font-bold uppercase mb-1">Resumo do pedido</p>
-                  <p className="text-sm"><strong>{selectedService?.name}</strong> em {(appointmentDate ?? selectedDate).toLocaleString()}</p>
-                </div>
-                <button type="submit"
-                  className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100">
-                  Confirmar Agendamento
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* STEP 4: SUCESSO */}
-          {step === 4 && (
-            <div className="text-center py-6 space-y-4">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full mb-4">
-                <CheckCircle size={40} />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Pedido Enviado!</h2>
-              <p className="text-gray-500">Olá {clientName}, seu agendamento está em **análise** pela dona do estúdio.</p>
-              <button onClick={() => setStep(1)} className="text-zinc-900 font-bold hover:underline">Fazer novo agendamento</button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Booking />} />
+        <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>}>
+          <Route index element={<DailySchedule />} /> 
+          <Route path="agendamentos" element={<AllAppointments />} />
+          <Route path="metricas" element={<Metrics />} />
+          <Route path="pendentes" element={<PendingAppointments />} />
+          <Route path="configuracoes" element={<Settings/>} />
+          <Route path="alterar-senha" element={<ChangePassword />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
-}
+
+}   
