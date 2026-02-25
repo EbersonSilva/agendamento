@@ -1,0 +1,17 @@
+{
+  "name": "agendamento",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Beauty Studio Booking System",
+  "main": "backend/dist/server.js",
+  "scripts": {
+    "install-backend": "cd backend && npm install",
+    "build-backend": "cd backend && npm run build",
+    "build": "npm run install-backend && npm run build-backend",
+    "start": "cd backend && npm start",
+    "dev": "cd backend && npm run dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
