@@ -27,6 +27,7 @@ export function Booking() {
   const [closedDays, setClosedDays] = useState<number[]>([]);
   const [closedDates, setClosedDates] = useState<string[]>([]);
   const [hasToken, setHasToken] = useState(!!localStorage.getItem('@Estudio:token'));
+  const [ownerWhatsApp, setOwnerWhatsApp] = useState('');
 
   // Função para formatar telefone brasileiro
   const formatPhone = (value: string) => {
@@ -52,7 +53,10 @@ export function Booking() {
       const activeServices = response.data.filter((service: Service) => service.active);
       setServices(activeServices);
     });
-    api.get('/config').then(response => setClosedDays(response.data.closedDays || []));
+    api.get('/config').then(response => {
+      setClosedDays(response.data.closedDays || []);
+      setOwnerWhatsApp(response.data.ownerWhatsApp || '');
+    });
     api.get('/closed-dates').then(response => {
       // Extrai apenas as datas (formato YYYY-MM-DD) e armazena
       const dates = response.data.map((item: { date: string }) => 
@@ -89,6 +93,15 @@ export function Booking() {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  };
+
+  const buildOwnerMessage = () => {
+    const selectedDateTime = appointmentDate ?? selectedDate;
+    const serviceName = selectedService?.name ?? 'Servico nao informado';
+    const dateText = selectedDateTime.toLocaleDateString('pt-BR');
+    const timeText = selectedDateTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    return `Ola! Acabei de realizar um agendamento online: *Servico:* ${serviceName} *Data:* ${dateText} *Horario:* ${timeText} *Nome:* ${clientName} *WhatsApp:* ${phone}`;
   };
 
   // Formata os dias para exibição no seletor horizontal
@@ -271,6 +284,18 @@ export function Booking() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Pedido Enviado!</h2>
               <p className="text-gray-500">Olá {clientName}, seu agendamento está em **análise** pela dona do estúdio.</p>
+              {ownerWhatsApp ? (
+                <a
+                  href={`https://wa.me/${ownerWhatsApp}?text=${encodeURIComponent(buildOwnerMessage())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all shadow-lg shadow-green-100"
+                >
+                  Enviar mensagem para a dona no WhatsApp
+                </a>
+              ) : (
+                <p className="text-xs text-zinc-400">WhatsApp da dona nao configurado.</p>
+              )}
               <button onClick={() => setStep(1)} className="text-zinc-900 font-bold hover:underline">Fazer novo agendamento</button>
             </div>
           )}

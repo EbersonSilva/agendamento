@@ -46,6 +46,7 @@ model StudioConfig{
   openingTime   Int      @default(8)    // Hora de abertura do estúdio (formato 24h)
   closingTime   Int      @default(18)   // Hora de fechamento do estúdio (formato 24h)
   closedDays    Int[]    @default([0]) // Dias da semana em que o estúdio está fechado, ex: "0,6" para domingo e sábado
+  ownerWhatsApp String?
   createdAt     DateTime @updatedAt
 }
 

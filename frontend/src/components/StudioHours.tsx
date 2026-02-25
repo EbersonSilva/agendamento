@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
 import { api } from '../service/api';
 import { Clock, Calendar, Save } from 'lucide-react';
+import { AxiosError } from 'axios';
 
 interface StudioConfig {
   openingTime: number;
   closingTime: number;
   closedDays: number[];
+  ownerWhatsApp: string;
 }
 
 export function StudioHours() {
   const [config, setConfig] = useState<StudioConfig>({
     openingTime: 8,
     closingTime: 18,
-    closedDays: [0] // Domingo por padrão
+    closedDays: [0], // Domingo por padrão
+    ownerWhatsApp: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,11 +33,32 @@ export function StudioHours() {
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
+  const formatPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+
+    if (numbers.length <= 2) {
+      return numbers;
+    }
+    if (numbers.length <= 6) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    }
+    if (numbers.length <= 10) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+    }
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  };
+
   useEffect(() => {
     async function loadConfig() {
       try {
         const response = await api.get('/config');
-        setConfig(response.data);
+        const { openingTime, closingTime, closedDays, ownerWhatsApp } = response.data;
+        setConfig({
+          openingTime,
+          closingTime,
+          closedDays,
+          ownerWhatsApp: ownerWhatsApp ? formatPhone(ownerWhatsApp) : ''
+        });
       } catch (error) {
         console.error('Erro ao carregar configurações:', error);
       } finally {
@@ -63,14 +87,28 @@ export function StudioHours() {
       return;
     }
 
+    const normalizedOwnerWhatsApp = config.ownerWhatsApp.replace(/\D/g, '');
+    if (!normalizedOwnerWhatsApp) {
+      setMessage('Informe o WhatsApp da dona');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+    if (normalizedOwnerWhatsApp.length !== 10 && normalizedOwnerWhatsApp.length !== 11) {
+      setMessage('Informe DDD + número (10 ou 11 dígitos)');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
     setSaving(true);
     try {
-      await api.put('/config', config);
+      await api.put('/config', { ...config, ownerWhatsApp: normalizedOwnerWhatsApp });
       setMessage('Configurações salvas com sucesso!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
+      const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+      const serverMessage = axiosError.response?.data?.error || axiosError.response?.data?.message;
       console.error('Erro ao salvar:', error);
-      setMessage('Erro ao salvar configurações');
+      setMessage(serverMessage || 'Erro ao salvar configurações');
       setTimeout(() => setMessage(''), 3000);
     } finally {
       setSaving(false);
@@ -165,6 +203,30 @@ export function StudioHours() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Contato */}
+      <div className="bg-white p-6 rounded-2xl border border-zinc-100 space-y-4">
+        <div className="flex items-center gap-2 text-zinc-700 font-medium mb-4">
+          <span className="text-base">Contato da Dona</span>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-2">
+            WhatsApp para receber os agendamentos
+          </label>
+          <input
+            type="tel"
+            value={config.ownerWhatsApp}
+            onChange={(e) => setConfig({ ...config, ownerWhatsApp: formatPhone(e.target.value) })}
+            placeholder="(11) 98765-4321"
+            maxLength={15}
+            className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+          />
+          <p className="text-xs text-zinc-500 mt-2">
+            Esse numero aparece no botao de mensagem apos o agendamento.
+          </p>
         </div>
       </div>
 

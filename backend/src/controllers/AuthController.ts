@@ -43,7 +43,7 @@ export const AuthController = {
         user: {
           id: user.id,
           name: user.name,
-          phone: user.phone,
+          phone: user.phone
         },
         token
       });

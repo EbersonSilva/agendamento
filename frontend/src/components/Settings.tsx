@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../service/api';
-import { Plus, DollarSign, Clock, ToggleRight, ToggleLeft, Wrench, CalendarClock, CalendarX } from 'lucide-react';
+import { Plus, DollarSign, Clock, ToggleRight, ToggleLeft, Wrench, CalendarClock, CalendarX, Pencil } from 'lucide-react';
 import { ServiceModal } from '../components/ServiceModal';
 import { ConfirmModal } from './ConfirmModal';
 import { StudioHours } from './StudioHours';
@@ -20,6 +20,7 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>('services');
   const [services, setServices] = useState<Service[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<number | null>(null);
 
@@ -106,7 +107,10 @@ export function Settings() {
                 <p className="text-sm text-zinc-500">Gerencie o catálogo de serviços</p>
               </div>
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => {
+                  setEditingService(null);
+                  setIsModalOpen(true);
+                }}
                 className="bg-zinc-900 text-white p-3 rounded-full shadow-lg hover:bg-zinc-800 transition-colors shrink-0"
               >
                 <Plus size={24} />
@@ -140,6 +144,16 @@ export function Settings() {
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingService(service);
+                        setIsModalOpen(true);
+                      }}
+                      className="text-zinc-600 p-2 hover:bg-zinc-100 rounded-xl transition-colors active:scale-90"
+                      title="Editar serviço"
+                    >
+                      <Pencil size={18} />
+                    </button>
                     {service.active ? (
                       <button
                         onClick={() => openDeleteConfirm(service.id)}
@@ -171,6 +185,7 @@ export function Settings() {
         <ServiceModal
           onClose={() => setIsModalOpen(false)}
           onSuccess={loadServices}
+          service={editingService}
         />
       )}
 
