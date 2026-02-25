@@ -64,11 +64,12 @@ export const AppointmentController = {
         return res.status(400).json({ error: "Data é obrigatória" });
       }
 
-      const searchDate = new Date(`${date}T00:00:00`); // evita shift de fuso horário
+      // Cria data no timezone do Brasil (UTC-3)
+      const searchDate = new Date(`${date}T00:00:00-03:00`);
       const startOfDay = new Date(searchDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      startOfDay.setUTCHours(3, 0, 0, 0); // 00:00 BRT = 03:00 UTC
       const endOfDay = new Date(searchDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      endOfDay.setUTCHours(26, 59, 59, 999); // 23:59 BRT = 02:59 UTC do dia seguinte
 
       // Busca o que já está ocupado ou pendente
       const appointments = await prisma.appointment.findMany({
@@ -95,29 +96,33 @@ export const AppointmentController = {
       }
 
       const allTimes: string[] = [];
-      let cursor = new Date(startOfDay);
-      cursor.setHours(openingTime, 0, 0, 0);
-      const endCursor = new Date(startOfDay);
-      endCursor.setHours(closingTime, 0, 0, 0);
+      let cursor = new Date(`${date}T${String(openingTime).padStart(2,'0')}:00:00-03:00`);
+      const endCursor = new Date(`${date}T${String(closingTime).padStart(2,'0')}:00:00-03:00`);
 
+      // Gera horários até que o INÍCIO + DURAÇÃO não ultrapasse o closingTime
       while (cursor < endCursor) {
-        const h = String(cursor.getHours()).padStart(2, "0");
-        const m = String(cursor.getMinutes()).padStart(2, "0");
+        const slotEnd = addMinutes(cursor, slotMinutes);
+        // Se o fim do slot ultrapassar o horário de fechamento, para
+        if (slotEnd > endCursor) break;
+        
+        const h = String(cursor.getUTCHours() - 3).padStart(2, "0"); // Converte UTC de volta pra BRT
+        const m = String(cursor.getUTCMinutes()).padStart(2, "0");
         allTimes.push(`${h}:${m}`);
         cursor = addMinutes(cursor, slotMinutes);
       }
 
-      // Filtra os horários livres
-      const now = new Date();
-      const isToday = startOfDay.toDateString() === now.toDateString();
+      // Filtra os horários livres considerando timezone do Brasil
+      const nowBRT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const todayBRT = nowBRT.toISOString().split('T')[0];
+      const isToday = date === todayBRT;
 
       const availableTimes = allTimes.filter(time => {
         const [h, m] = time.split(':').map(Number);
-        const slotStart = new Date(startOfDay);
-        slotStart.setHours(h, m, 0, 0);
+        const slotStart = new Date(`${date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00-03:00`);
         const slotEnd = addMinutes(slotStart, slotMinutes);
 
-        if (isToday && slotStart <= now) {
+        // Se for hoje, não mostra horários que já passaram
+        if (isToday && slotStart <= nowBRT) {
           return false;
         }
 
