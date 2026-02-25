@@ -153,19 +153,16 @@ export const AppointmentController = {
         closedDays: [0]
       };
 
-      // Parse da data local sem conversão de fuso horário
+      // Parse da data considerando timezone do Brasil (UTC-3)
+      // Cria o horário local do Brasil e ajusta para UTC antes de salvar
       const [datePart, timePart] = String(startTime).split('T');
       const [year, month, dayOfMonth] = datePart.split('-').map(Number);
       const [hourPart, minutePart, secondPart = '0'] = timePart.split(':');
-      const start = new Date(
-        year,
-        month - 1,
-        dayOfMonth,
-        Number(hourPart),
-        Number(minutePart),
-        Number(secondPart)
-      );
-      const hour = start.getHours();
+      
+      // Cria a data em horário local e força interpretação como Brasil
+      const localTimeStr = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}T${String(hourPart).padStart(2, '0')}:${String(minutePart).padStart(2, '0')}:${String(secondPart).padStart(2, '0')}-03:00`;
+      const start = new Date(localTimeStr);
+      const hour = Number(hourPart);
       const day = start.getDay();
 
       // 2. VALIDAÇÕES DE HORÁRIO
