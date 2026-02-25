@@ -22,6 +22,11 @@ export const AuthController = {
         return res.status(401).json({ error: "Administrador não encontrado ou credenciais inválidas." });
       }
 
+      // 3. Validação: Senha existe?
+      if (!user.passwordHash) {
+        return res.status(401).json({ error: "Administrador não possui senha definida." });
+      }
+
       // 4. Validação: A senha está correta?
       // Comparando a senha enviada com o hash salvo no banco
       const passwordMatch = await bcrypt.compare(password, user.passwordHash);
