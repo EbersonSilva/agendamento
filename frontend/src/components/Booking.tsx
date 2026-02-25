@@ -26,7 +26,7 @@ export function Booking() {
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [closedDays, setClosedDays] = useState<number[]>([]);
   const [closedDates, setClosedDates] = useState<string[]>([]);
-  const [hasToken, setHasToken] = useState(!!localStorage.getItem('@Estudio:token'));
+  const [hasToken] = useState(!!localStorage.getItem('@Estudio:token'));
   const [ownerWhatsApp, setOwnerWhatsApp] = useState('');
 
   // Função para formatar telefone brasileiro
