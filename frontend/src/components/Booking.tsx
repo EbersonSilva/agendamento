@@ -139,17 +139,9 @@ export function Booking() {
 
         {/* HEADER */}
         <div className="bg-zinc-900 p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Melissa Beaulty</h1>
-              <p className="text-zinc-400 text-sm mt-1">Sua melhor versão começa aqui</p>
-            </div>
-            <Link
-              to={hasToken ? "/admin" : "/login"}
-              className="text-xs font-semibold uppercase tracking-wide bg-white/10 hover:bg-white/20 px-3 py-2 rounded-full"
-            >
-              {hasToken ? "Painel Admin" : "Acesso Admin"}
-            </Link>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold tracking-tight">Melissa Beaulty</h1>
+            <p className="text-zinc-400 text-sm mt-1">Sua melhor versão começa aqui</p>
           </div>
         </div>
 
@@ -299,6 +291,16 @@ export function Booking() {
               <button onClick={() => setStep(1)} className="text-zinc-900 font-bold hover:underline">Fazer novo agendamento</button>
             </div>
           )}
+        </div>
+
+        {/* Footer com link discreto */}
+        <div className="p-4 text-center border-t border-zinc-100">
+          <Link
+            to={hasToken ? "/admin" : "/login"}
+            className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+          >
+            Área administrativa
+          </Link>
         </div>
       </div>
     </div>
