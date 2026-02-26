@@ -96,25 +96,32 @@ export const AppointmentController = {
       }
 
       const allTimes: string[] = [];
-      let cursor = new Date(`${date}T${String(openingTime).padStart(2,'0')}:00:00-03:00`);
-      const endCursor = new Date(`${date}T${String(closingTime).padStart(2,'0')}:00:00-03:00`);
-
-      // Gera horários até que o INÍCIO + DURAÇÃO não ultrapasse o closingTime
-      while (cursor < endCursor) {
-        const slotEnd = addMinutes(cursor, slotMinutes);
-        // Se o fim do slot ultrapassar o horário de fechamento, para
-        if (slotEnd > endCursor) break;
-        
-        const h = String(cursor.getUTCHours() - 3).padStart(2, "0"); // Converte UTC de volta pra BRT
-        const m = String(cursor.getUTCMinutes()).padStart(2, "0");
-        allTimes.push(`${h}:${m}`);
-        cursor = addMinutes(cursor, slotMinutes);
+      // Gera horários de forma simples, sem conversões confusas
+      for (let hour = openingTime; hour < closingTime; hour++) {
+        for (let minute = 0; minute < 60; minute += slotMinutes) {
+          const h = String(hour).padStart(2, "0");
+          const m = String(minute).padStart(2, "0");
+          allTimes.push(`${h}:${m}`);
+        }
       }
 
       // Filtra os horários livres considerando timezone do Brasil
-      const nowBRT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-      const todayBRT = nowBRT.toISOString().split('T')[0];
-      const isToday = date === todayBRT;
+      const nowUTC = new Date();
+      // Aplica offset de -3 horas (BRT = UTC-3)
+      const brtOffset = -3 * 60 * 60 * 1000;
+      const nowBRT = new Date(nowUTC.getTime() + brtOffset);
+      
+      // Data de hoje em BRT em string para comparação
+      const year = nowBRT.getUTCFullYear();
+      const month = String(nowBRT.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(nowBRT.getUTCDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      
+      const isToday = date === todayStr;
+      const currentHour = nowBRT.getUTCHours();
+      const currentMinute = nowBRT.getUTCMinutes();
+
+      console.log(`DEBUG: Hora BRT agora: ${currentHour}:${String(currentMinute).padStart(2,'0')}, Data: ${todayStr}, Comparando com: ${date}`);
 
       const availableTimes = allTimes.filter(time => {
         const [h, m] = time.split(':').map(Number);
@@ -122,8 +129,11 @@ export const AppointmentController = {
         const slotEnd = addMinutes(slotStart, slotMinutes);
 
         // Se for hoje, não mostra horários que já passaram
-        if (isToday && slotStart <= nowBRT) {
-          return false;
+        if (isToday) {
+          if (h < currentHour || (h === currentHour && m <= currentMinute)) {
+            console.log(`DEBUG: Filtrando ${h}:${m} (passou)`);
+            return false;
+          }
         }
 
         return !appointments.some(app => {
