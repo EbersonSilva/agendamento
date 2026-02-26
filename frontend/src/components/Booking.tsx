@@ -13,7 +13,7 @@ interface Service {
   durationMinutes: number;
   active: boolean;
 }
-
+// O componente Booking é usado tanto para o cliente (modo "public") quanto para o admin criar agendamento manualmente (modo "admin")
 interface BookingProps {
   mode?: 'public' | 'admin';
 }
