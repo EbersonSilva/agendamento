@@ -64,10 +64,9 @@ export const AppointmentController = {
         return res.status(400).json({ error: "Data é obrigatória" });
       }
 
-      // Busca agendamentos daquele dia (sem conversoes de timezone manuais)
-      // O Postgres ja sabe trabalhar com Timestamptz
-      const dayStart = new Date(`${date}T00:00:00.000Z`);
-      const dayEnd = new Date(`${date}T23:59:59.999Z`);
+      // Busca agendamentos daquele dia considerando horario do Brasil
+      const dayStart = new Date(`${date}T00:00:00-03:00`);
+      const dayEnd = new Date(`${date}T23:59:59.999-03:00`);
 
       const appointments = await prisma.appointment.findMany({
         where: {
@@ -105,15 +104,28 @@ export const AppointmentController = {
         allTimes.push(`${hStr}:${minStr}`);
       }
 
-      // Verifica qual é "hoje" analisando horário local
+      // Verifica qual é "hoje" considerando America/Sao_Paulo
       const now = new Date();
-      const todayStr = now.getFullYear() + '-' + 
-                       String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                       String(now.getDate()).padStart(2, '0');
-      
+      const nowParts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).formatToParts(now);
+      const partMap: Record<string, string> = {};
+      nowParts.forEach(part => {
+        if (part.type !== 'literal') {
+          partMap[part.type] = part.value;
+        }
+      });
+
+      const todayStr = `${partMap.year}-${partMap.month}-${partMap.day}`;
       const isToday = String(date) === todayStr;
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      const currentHour = Number(partMap.hour);
+      const currentMinute = Number(partMap.minute);
 
       // Filtra horários disponíveis
       const availableTimes = allTimes.filter(time => {
@@ -127,7 +139,7 @@ export const AppointmentController = {
         }
 
         // Verifica se existe agendamento conflitante nesse horário
-        const slotStart = new Date(`${date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00Z`);
+        const slotStart = new Date(`${date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00-03:00`);
         const slotEnd = addMinutes(slotStart, slotMinutes);
 
         return !appointments.some(app => {
