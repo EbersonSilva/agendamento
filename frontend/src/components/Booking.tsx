@@ -14,7 +14,11 @@ interface Service {
   active: boolean;
 }
 
-export function Booking() {
+interface BookingProps {
+  mode?: 'public' | 'admin';
+}
+
+export function Booking({ mode = 'public' }: BookingProps) {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -28,6 +32,7 @@ export function Booking() {
   const [closedDates, setClosedDates] = useState<string[]>([]);
   const [hasToken] = useState(!!localStorage.getItem('@Estudio:token'));
   const [ownerWhatsApp, setOwnerWhatsApp] = useState('');
+  const isAdmin = mode === 'admin';
 
   // Função para formatar telefone brasileiro
   const formatPhone = (value: string) => {
@@ -140,8 +145,12 @@ export function Booking() {
         {/* HEADER */}
         <div className="bg-zinc-900 p-6 text-white">
           <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Melissa Beaulty</h1>
-            <p className="text-zinc-400 text-sm mt-1">Sua melhor versão começa aqui</p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {isAdmin ? 'Novo agendamento' : 'Melissa Beaulty'}
+            </h1>
+            <p className="text-zinc-400 text-sm mt-1">
+              {isAdmin ? 'Agende um cliente manualmente' : 'Sua melhor versão começa aqui'}
+            </p>
           </div>
         </div>
 
@@ -274,9 +283,15 @@ export function Booking() {
               <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full mb-4">
                 <CheckCircle size={40} />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Pedido Enviado!</h2>
-              <p className="text-gray-500">Olá {clientName}, seu agendamento está em **análise** pela dona do estúdio.</p>
-              {ownerWhatsApp ? (
+              <h2 className="text-2xl font-bold text-gray-900">
+                {isAdmin ? 'Agendamento criado!' : 'Pedido Enviado!'}
+              </h2>
+              <p className="text-gray-500">
+                {isAdmin
+                  ? 'Agendamento registrado como pendente. Você pode aprovar na lista de pendentes.'
+                  : `Olá ${clientName}, seu agendamento está em **análise** pela dona do estúdio.`}
+              </p>
+              {!isAdmin && ownerWhatsApp ? (
                 <a
                   href={`https://wa.me/${ownerWhatsApp}?text=${encodeURIComponent(buildOwnerMessage())}`}
                   target="_blank"
@@ -285,23 +300,33 @@ export function Booking() {
                 >
                   Enviar mensagem para a dona no WhatsApp
                 </a>
-              ) : (
+              ) : !isAdmin ? (
                 <p className="text-xs text-zinc-400">WhatsApp da dona nao configurado.</p>
+              ) : null}
+              {isAdmin ? (
+                <Link to="/admin/pendentes" className="text-zinc-900 font-bold hover:underline">
+                  Ver pendentes
+                </Link>
+              ) : (
+                <button onClick={() => setStep(1)} className="text-zinc-900 font-bold hover:underline">
+                  Fazer novo agendamento
+                </button>
               )}
-              <button onClick={() => setStep(1)} className="text-zinc-900 font-bold hover:underline">Fazer novo agendamento</button>
             </div>
           )}
         </div>
 
         {/* Footer com link discreto */}
-        <div className="p-4 text-center border-t border-zinc-100">
-          <Link
-            to={hasToken ? "/admin" : "/login"}
-            className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-          >
-            Área administrativa
-          </Link>
-        </div>
+        {!isAdmin && (
+          <div className="p-4 text-center border-t border-zinc-100">
+            <Link
+              to={hasToken ? "/admin" : "/login"}
+              className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+            >
+              Área administrativa
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

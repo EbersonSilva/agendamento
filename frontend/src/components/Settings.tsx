@@ -77,12 +77,12 @@ export function Settings() {
       </header>
 
       {/* Abas */}
-      <div className="flex gap-2 border-b border-zinc-200 overflow-x-auto">
+      <div className="flex gap-2 border-b border-zinc-200 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors relative whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors relative whitespace-nowrap shrink-0 ${
               activeTab === tab.id
                 ? 'text-zinc-900'
                 : 'text-zinc-500 hover:text-zinc-700'
@@ -111,7 +111,7 @@ export function Settings() {
                   setEditingService(null);
                   setIsModalOpen(true);
                 }}
-                className="bg-zinc-900 text-white p-3 rounded-full shadow-lg hover:bg-zinc-800 transition-colors shrink-0"
+                className="bg-zinc-900 text-white p-3 rounded-full shadow-lg hover:bg-zinc-800 transition-colors shrink-0 w-full sm:w-auto"
               >
                 <Plus size={24} />
               </button>
@@ -121,13 +121,13 @@ export function Settings() {
               {services.map(service => (
                 <div
                   key={service.id}
-                  className={`bg-white p-4 rounded-2xl border flex justify-between items-center transition-all ${
+                  className={`bg-white p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
                     service.active
                       ? 'border-zinc-100'
                       : 'border-zinc-200 bg-zinc-50 opacity-60'
                   }`}
                 >
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className={`font-bold ${service.active ? 'text-zinc-900' : 'text-zinc-500'}`}>
                         {service.name}
@@ -138,12 +138,12 @@ export function Settings() {
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-4 text-xs text-zinc-500 mt-1">
+                    <div className="flex flex-wrap gap-3 text-xs text-zinc-500 mt-1">
                       <span className="flex items-center gap-1"><DollarSign size={12} />R$ {service.price}</span>
                       <span className="flex items-center gap-1"><Clock size={12} />{service.durationMinutes} min</span>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 self-end sm:self-auto">
                     <button
                       onClick={() => {
                         setEditingService(service);

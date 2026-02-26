@@ -92,7 +92,7 @@ export function ClosedDates() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-zinc-900 text-white p-3 rounded-full shadow-lg hover:bg-zinc-800 transition-colors shrink-0"
+          className="bg-zinc-900 text-white p-3 rounded-full shadow-lg hover:bg-zinc-800 transition-colors shrink-0 w-full sm:w-auto"
         >
           <Plus size={20} />
         </button>

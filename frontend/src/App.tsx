@@ -19,6 +19,7 @@ export default function App() {
         <Route path="/" element={<Booking />} />
         <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>}>
           <Route index element={<DailySchedule />} /> 
+          <Route path="novo-agendamento" element={<Booking mode="admin" />} />
           <Route path="agendamentos" element={<AllAppointments />} />
           <Route path="metricas" element={<Metrics />} />
           <Route path="pendentes" element={<PendingAppointments />} />
