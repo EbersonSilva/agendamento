@@ -93,13 +93,16 @@ export const AppointmentController = {
       }
 
       // Gera lista de horários simples (Ex: 08:00, 09:00...22:00)
+      // Se slotMinutes = 120, gera: 08:00, 10:00, 12:00, etc
       const allTimes: string[] = [];
-      for (let hour = openingTime; hour < closingTime; hour++) {
-        for (let minute = 0; minute < 60; minute += slotMinutes) {
-          const h = String(hour).padStart(2, "0");
-          const m = String(minute).padStart(2, "0");
-          allTimes.push(`${h}:${m}`);
-        }
+      const startMinutes = openingTime * 60;
+      const endMinutes = closingTime * 60;
+      for (let m = startMinutes; m < endMinutes; m += slotMinutes) {
+        const h = Math.floor(m / 60);
+        const min = m % 60;
+        const hStr = String(h).padStart(2, "0");
+        const minStr = String(min).padStart(2, "0");
+        allTimes.push(`${hStr}:${minStr}`);
       }
 
       // Verifica qual é "hoje" analisando horário local
