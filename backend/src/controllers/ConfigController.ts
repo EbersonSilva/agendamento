@@ -36,8 +36,16 @@ export const ConfigController = {
             updateData.ownerWhatsApp = String(ownerWhatsApp).replace(/\D/g, "");
         }
         
+        const existingConfig = await prisma.studioConfig.findFirst();
+        if (!existingConfig) {
+            const createdConfig = await prisma.studioConfig.create({
+                data: updateData
+            });
+            return res.json(createdConfig);
+        }
+
         const config = await prisma.studioConfig.update({
-            where: { id: 1 },
+            where: { id: existingConfig.id },
             data: updateData
         });
         return res.json(config);
