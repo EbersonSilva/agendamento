@@ -64,22 +64,19 @@ export const AppointmentController = {
         return res.status(400).json({ error: "Data é obrigatória" });
       }
 
-      // Cria data no timezone do Brasil (UTC-3)
-      const searchDate = new Date(`${date}T00:00:00-03:00`);
-      const startOfDay = new Date(searchDate);
-      startOfDay.setUTCHours(3, 0, 0, 0); // 00:00 BRT = 03:00 UTC
-      const endOfDay = new Date(searchDate);
-      endOfDay.setUTCHours(26, 59, 59, 999); // 23:59 BRT = 02:59 UTC do dia seguinte
+      // Busca agendamentos daquele dia (sem conversoes de timezone manuais)
+      // O Postgres ja sabe trabalhar com Timestamptz
+      const dayStart = new Date(`${date}T00:00:00.000Z`);
+      const dayEnd = new Date(`${date}T23:59:59.999Z`);
 
-      // Busca o que já está ocupado ou pendente
       const appointments = await prisma.appointment.findMany({
         where: {
-          startTime: { gte: startOfDay, lte: endOfDay },
-          NOT: { status: 'canceled' } // Garante que horários cancelados fiquem livres
+          startTime: { gte: dayStart, lte: dayEnd },
+          NOT: { status: 'canceled' }
         }
       });
 
-      // Busca configurações do estúdio para montar a grade dinâmica
+      // Busca configurações do estúdio
       const config = await prisma.studioConfig.findFirst();
       const openingTime = config?.openingTime ?? 8;
       const closingTime = config?.closingTime ?? 18;
@@ -95,8 +92,8 @@ export const AppointmentController = {
         slotMinutes = service.durationMinutes;
       }
 
+      // Gera lista de horários simples (Ex: 08:00, 09:00...22:00)
       const allTimes: string[] = [];
-      // Gera horários de forma simples, sem conversões confusas
       for (let hour = openingTime; hour < closingTime; hour++) {
         for (let minute = 0; minute < 60; minute += slotMinutes) {
           const h = String(hour).padStart(2, "0");
@@ -105,36 +102,30 @@ export const AppointmentController = {
         }
       }
 
-      // Filtra os horários livres considerando timezone do Brasil
-      const nowUTC = new Date();
-      // Aplica offset de -3 horas (BRT = UTC-3)
-      const brtOffset = -3 * 60 * 60 * 1000;
-      const nowBRT = new Date(nowUTC.getTime() + brtOffset);
+      // Verifica qual é "hoje" analisando horário local
+      const now = new Date();
+      const todayStr = now.getFullYear() + '-' + 
+                       String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(now.getDate()).padStart(2, '0');
       
-      // Data de hoje em BRT em string para comparação
-      const year = nowBRT.getUTCFullYear();
-      const month = String(nowBRT.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(nowBRT.getUTCDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-      
-      const isToday = date === todayStr;
-      const currentHour = nowBRT.getUTCHours();
-      const currentMinute = nowBRT.getUTCMinutes();
+      const isToday = String(date) === todayStr;
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
 
-      console.log(`DEBUG: Hora BRT agora: ${currentHour}:${String(currentMinute).padStart(2,'0')}, Data: ${todayStr}, Comparando com: ${date}`);
-
+      // Filtra horários disponíveis
       const availableTimes = allTimes.filter(time => {
         const [h, m] = time.split(':').map(Number);
-        const slotStart = new Date(`${date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00-03:00`);
-        const slotEnd = addMinutes(slotStart, slotMinutes);
 
-        // Se for hoje, não mostra horários que já passaram
+        // Se for hoje, filtra horários que ja passaram
         if (isToday) {
           if (h < currentHour || (h === currentHour && m <= currentMinute)) {
-            console.log(`DEBUG: Filtrando ${h}:${m} (passou)`);
             return false;
           }
         }
+
+        // Verifica se existe agendamento conflitante nesse horário
+        const slotStart = new Date(`${date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00Z`);
+        const slotEnd = addMinutes(slotStart, slotMinutes);
 
         return !appointments.some(app => {
           const appStart = new Date(app.startTime);
@@ -145,6 +136,7 @@ export const AppointmentController = {
 
       return res.json(availableTimes);
     } catch (error) {
+      console.error("Erro em listAvailableTimes:", error);
       return res.status(500).json({ error: "Erro ao buscar horários" });
     }
   },
