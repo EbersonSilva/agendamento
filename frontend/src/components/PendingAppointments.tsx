@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AxiosError } from 'axios';
 import { api } from '../service/api';
 import { Check, X, Clock, AlertCircle } from 'lucide-react';
 
@@ -20,15 +21,15 @@ export function PendingAppointments() {
       setLoading(true);
       setError(null);
       const res = await api.get('/appointments?status=pending');
-      
-      // Validação de resposta
+
       if (Array.isArray(res.data)) {
         setAppointments(res.data);
       } else {
         setError('Formato de dados inválido recebido do servidor');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar agendamentos';
+      const axiosError = err as AxiosError<{ error?: string }>;
+      const errorMessage = axiosError.response?.data?.error || 'Erro ao buscar agendamentos';
       setError(errorMessage);
       console.error('Erro ao buscar agendamentos:', err);
     } finally {
@@ -43,15 +44,13 @@ export function PendingAppointments() {
   const handleStatusChange = async (id: number, status: 'confirmed' | 'canceled') => {
     try {
       await api.put(`/appointments/${id}`, { newStatus: status });
-      // Remove da lista local assim que aprovado/recusado para sumir da tela de pendentes
       setAppointments(prev => prev.filter(app => app.id !== id));
-      
-      // Dispara evento personalizado para atualizar o badge no menu
       window.dispatchEvent(new CustomEvent('pendingCountChanged'));
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar status';
+    } catch (err) {
+      const axiosError = err as AxiosError<{ error?: string }>;
+      const errorMessage = axiosError.response?.data?.error || 'Erro ao atualizar status';
       setError(errorMessage);
-      console.error('Erro ao atualizar status:', error);
+      console.error('Erro ao atualizar status:', err);
     }
   };
 

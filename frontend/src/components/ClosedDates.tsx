@@ -1,19 +1,32 @@
 import { useState, useEffect } from 'react';
 import { api } from '../service/api';
 import { CalendarX, Plus, Trash2, X } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ClosedDate {
   id: number;
   date: string;
   reason?: string;
+  startTimeMinutes?: number | null;
+  endTimeMinutes?: number | null;
+}
+
+// Converte string de data para Date local sem considerar timezone
+function parseLocalDate(dateString: string): Date {
+  // Remove parte de tempo se houver (2026-03-10T00:00:00.000Z -> 2026-03-10)
+  const dateOnly = dateString.split('T')[0];
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  return new Date(year, month - 1, day);
 }
 
 export function ClosedDates() {
   const [closedDates, setClosedDates] = useState<ClosedDate[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newDate, setNewDate] = useState('');
+  const [closureType, setClosureType] = useState<'full' | 'partial'>('full');
+  const [newStartTime, setNewStartTime] = useState('');
+  const [newEndTime, setNewEndTime] = useState('');
   const [newReason, setNewReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,16 +53,33 @@ export function ClosedDates() {
       return;
     }
 
+    if (closureType === 'partial') {
+      if (!newStartTime || !newEndTime) {
+        setError('Informe horário inicial e final');
+        return;
+      }
+
+      if (newStartTime >= newEndTime) {
+        setError('Horário final deve ser maior que o inicial');
+        return;
+      }
+    }
+
     setSaving(true);
     setError('');
 
     try {
       await api.post('/closed-dates', {
         date: newDate,
+        startTime: closureType === 'partial' ? newStartTime : null,
+        endTime: closureType === 'partial' ? newEndTime : null,
         reason: newReason || null
       });
 
       setNewDate('');
+      setClosureType('full');
+      setNewStartTime('');
+      setNewEndTime('');
       setNewReason('');
       setIsModalOpen(false);
       await loadClosedDates();
@@ -74,10 +104,23 @@ export function ClosedDates() {
     }
   }
 
+  function formatTimeFromMinutes(value: number | null | undefined) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
   // Filtra datas futuras e ordena
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   const futureDates = closedDates
-    .filter(cd => new Date(cd.date) >= new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .filter(cd => parseLocalDate(cd.date) >= todayStart)
+    .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
 
   if (loading) {
     return <div className="text-center text-zinc-500">Carregando...</div>;
@@ -112,8 +155,15 @@ export function ClosedDates() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-zinc-900 wrap-break-word">
-                    {format(parseISO(closedDate.date), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    {format(parseLocalDate(closedDate.date), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </p>
+                  {closedDate.startTimeMinutes !== null && closedDate.startTimeMinutes !== undefined && closedDate.endTimeMinutes !== null && closedDate.endTimeMinutes !== undefined ? (
+                    <p className="text-sm text-zinc-600 wrap-break-word">
+                      {formatTimeFromMinutes(closedDate.startTimeMinutes)} às {formatTimeFromMinutes(closedDate.endTimeMinutes)}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-zinc-600 wrap-break-word">Dia inteiro</p>
+                  )}
                   {closedDate.reason && (
                     <p className="text-sm text-zinc-500 wrap-break-word">{closedDate.reason}</p>
                   )}
@@ -148,6 +198,9 @@ export function ClosedDates() {
                   setIsModalOpen(false);
                   setError('');
                   setNewDate('');
+                  setClosureType('full');
+                  setNewStartTime('');
+                  setNewEndTime('');
                   setNewReason('');
                 }}
                 className="text-zinc-400 hover:text-zinc-600"
@@ -168,6 +221,67 @@ export function ClosedDates() {
                 className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-2">
+                Tipo de fechamento
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClosureType('full');
+                    setNewStartTime('');
+                    setNewEndTime('');
+                  }}
+                  className={`py-2 px-3 rounded-xl border text-sm font-medium transition-colors ${
+                    closureType === 'full'
+                      ? 'bg-zinc-900 text-white border-zinc-900'
+                      : 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
+                  }`}
+                >
+                  Dia inteiro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClosureType('partial')}
+                  className={`py-2 px-3 rounded-xl border text-sm font-medium transition-colors ${
+                    closureType === 'partial'
+                      ? 'bg-zinc-900 text-white border-zinc-900'
+                      : 'border-zinc-300 text-zinc-700 hover:bg-zinc-50'
+                  }`}
+                >
+                  Por horário
+                </button>
+              </div>
+            </div>
+
+            {closureType === 'partial' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 mb-2">
+                    Início *
+                  </label>
+                  <input
+                    type="time"
+                    value={newStartTime}
+                    onChange={(e) => setNewStartTime(e.target.value)}
+                    className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 mb-2">
+                    Fim *
+                  </label>
+                  <input
+                    type="time"
+                    value={newEndTime}
+                    onChange={(e) => setNewEndTime(e.target.value)}
+                    className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-2">
@@ -194,6 +308,9 @@ export function ClosedDates() {
                   setIsModalOpen(false);
                   setError('');
                   setNewDate('');
+                  setClosureType('full');
+                  setNewStartTime('');
+                  setNewEndTime('');
                   setNewReason('');
                 }}
                 className="flex-1 py-3 border border-zinc-300 rounded-xl font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"

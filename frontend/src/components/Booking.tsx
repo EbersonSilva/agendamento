@@ -13,6 +13,13 @@ interface Service {
   durationMinutes: number;
   active: boolean;
 }
+
+interface ClosedDateItem {
+  date: string;
+  startTimeMinutes?: number | null;
+  endTimeMinutes?: number | null;
+}
+
 // O componente Booking é usado tanto para o cliente (modo "public") quanto para o admin criar agendamento manualmente (modo "admin")
 interface BookingProps {
   mode?: 'public' | 'admin';
@@ -29,7 +36,7 @@ export function Booking({ mode = 'public' }: BookingProps) {
   const [appointmentDate, setAppointmentDate] = useState<Date | null>(null);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [closedDays, setClosedDays] = useState<number[]>([]);
-  const [closedDates, setClosedDates] = useState<string[]>([]);
+  const [fullClosedDates, setFullClosedDates] = useState<string[]>([]);
   const [hasToken] = useState(!!localStorage.getItem('@Estudio:token'));
   const [ownerWhatsApp, setOwnerWhatsApp] = useState('');
   const isAdmin = mode === 'admin';
@@ -63,11 +70,12 @@ export function Booking({ mode = 'public' }: BookingProps) {
       setOwnerWhatsApp(response.data.ownerWhatsApp || '');
     });
     api.get('/closed-dates').then(response => {
-      // Extrai apenas as datas (formato YYYY-MM-DD) e armazena
-      const dates = response.data.map((item: { date: string }) => 
+      const dates = (response.data as ClosedDateItem[])
+        .filter(item => item.startTimeMinutes == null && item.endTimeMinutes == null)
+        .map(item => 
         format(new Date(item.date), 'yyyy-MM-dd')
       );
-      setClosedDates(dates);
+      setFullClosedDates(dates);
     });
   }, []);
 
@@ -78,7 +86,7 @@ export function Booking({ mode = 'public' }: BookingProps) {
   const isDateClosed = (date: Date) => {
     const dayOfWeek = date.getDay();
     const dateStr = format(date, 'yyyy-MM-dd');
-    return closedDays.includes(dayOfWeek) || closedDates.includes(dateStr);
+    return closedDays.includes(dayOfWeek) || fullClosedDates.includes(dateStr);
   };
 
   // Busca horários do backend sempre que mudar a data selecionada

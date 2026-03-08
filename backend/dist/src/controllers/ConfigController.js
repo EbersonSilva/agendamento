@@ -14,23 +14,33 @@ export const ConfigController = {
     // MÉTODO PARA ATUALIZAR CONFIGURAÇÕES DO ESTÚDIO
     async update(req, res) {
         const { openingTime, closingTime, closedDays, ownerWhatsApp } = req.body;
-        if (ownerWhatsApp !== undefined) {
+        // Valida WhatsApp somente se for enviado
+        if (ownerWhatsApp !== undefined && ownerWhatsApp !== null && ownerWhatsApp !== '') {
             const normalizedOwnerWhatsApp = String(ownerWhatsApp).replace(/\D/g, "");
-            if (!normalizedOwnerWhatsApp) {
-                return res.status(400).json({ error: "WhatsApp da dona é obrigatório." });
-            }
             if (normalizedOwnerWhatsApp.length !== 10 && normalizedOwnerWhatsApp.length !== 11) {
                 return res.status(400).json({ error: "Informe DDD + número (10 ou 11 dígitos)." });
             }
         }
+        const updateData = {};
+        if (openingTime !== undefined)
+            updateData.openingTime = openingTime;
+        if (closingTime !== undefined)
+            updateData.closingTime = closingTime;
+        if (closedDays !== undefined)
+            updateData.closedDays = closedDays;
+        if (ownerWhatsApp !== undefined && ownerWhatsApp !== null && ownerWhatsApp !== '') {
+            updateData.ownerWhatsApp = String(ownerWhatsApp).replace(/\D/g, "");
+        }
+        const existingConfig = await prisma.studioConfig.findFirst();
+        if (!existingConfig) {
+            const createdConfig = await prisma.studioConfig.create({
+                data: updateData
+            });
+            return res.json(createdConfig);
+        }
         const config = await prisma.studioConfig.update({
-            where: { id: 1 }, // Supondo que há apenas uma configuração com ID 1
-            data: {
-                openingTime,
-                closingTime,
-                closedDays,
-                ownerWhatsApp: ownerWhatsApp === undefined ? undefined : String(ownerWhatsApp).replace(/\D/g, "")
-            }
+            where: { id: existingConfig.id },
+            data: updateData
         });
         return res.json(config);
     }

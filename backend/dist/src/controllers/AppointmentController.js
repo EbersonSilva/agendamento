@@ -1,5 +1,13 @@
 import { prisma } from "../lib/prisma.js";
 import { addMinutes } from "date-fns";
+function hasClosedRangeConflict(startMinutes, endMinutes, ranges) {
+    return ranges.some(range => {
+        if (range.startTimeMinutes === null || range.endTimeMinutes === null) {
+            return true;
+        }
+        return startMinutes < range.endTimeMinutes && endMinutes > range.startTimeMinutes;
+    });
+}
 export const AppointmentController = {
     // LISTAR AGENDAMENTOS (Visão da Dona)
     async index(req, res) {
@@ -57,19 +65,28 @@ export const AppointmentController = {
             if (!date) {
                 return res.status(400).json({ error: "Data é obrigatória" });
             }
-            const searchDate = new Date(`${date}T00:00:00`); // evita shift de fuso horário
-            const startOfDay = new Date(searchDate);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(searchDate);
-            endOfDay.setHours(23, 59, 59, 999);
-            // Busca o que já está ocupado ou pendente
+            // Busca agendamentos daquele dia considerando horario do Brasil
+            const dayStart = new Date(`${date}T00:00:00-03:00`);
+            const dayEnd = new Date(`${date}T23:59:59.999-03:00`);
             const appointments = await prisma.appointment.findMany({
                 where: {
-                    startTime: { gte: startOfDay, lte: endOfDay },
-                    NOT: { status: 'canceled' } // Garante que horários cancelados fiquem livres
+                    startTime: { gte: dayStart, lte: dayEnd },
+                    NOT: { status: 'canceled' }
                 }
             });
-            // Busca configurações do estúdio para montar a grade dinâmica
+            const closedRanges = await prisma.closedDate.findMany({
+                where: {
+                    date: {
+                        gte: dayStart,
+                        lte: dayEnd
+                    }
+                }
+            });
+            const hasFullDayClosure = closedRanges.some(range => range.startTimeMinutes === null || range.endTimeMinutes === null);
+            if (hasFullDayClosure) {
+                return res.json([]);
+            }
+            // Busca configurações do estúdio
             const config = await prisma.studioConfig.findFirst();
             const openingTime = config?.openingTime ?? 8;
             const closingTime = config?.closingTime ?? 18;
@@ -83,28 +100,56 @@ export const AppointmentController = {
                 }
                 slotMinutes = service.durationMinutes;
             }
+            // Gera lista de horários simples (Ex: 08:00, 09:00...22:00)
+            // Se slotMinutes = 120, gera: 08:00, 10:00, 12:00, etc
             const allTimes = [];
-            let cursor = new Date(startOfDay);
-            cursor.setHours(openingTime, 0, 0, 0);
-            const endCursor = new Date(startOfDay);
-            endCursor.setHours(closingTime, 0, 0, 0);
-            while (cursor < endCursor) {
-                const h = String(cursor.getHours()).padStart(2, "0");
-                const m = String(cursor.getMinutes()).padStart(2, "0");
-                allTimes.push(`${h}:${m}`);
-                cursor = addMinutes(cursor, slotMinutes);
+            const startMinutes = openingTime * 60;
+            const endMinutes = closingTime * 60;
+            for (let m = startMinutes; m < endMinutes; m += slotMinutes) {
+                const h = Math.floor(m / 60);
+                const min = m % 60;
+                const hStr = String(h).padStart(2, "0");
+                const minStr = String(min).padStart(2, "0");
+                allTimes.push(`${hStr}:${minStr}`);
             }
-            // Filtra os horários livres
+            // Verifica qual é "hoje" considerando America/Sao_Paulo
             const now = new Date();
-            const isToday = startOfDay.toDateString() === now.toDateString();
+            const nowParts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Sao_Paulo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).formatToParts(now);
+            const partMap = {};
+            nowParts.forEach(part => {
+                if (part.type !== 'literal') {
+                    partMap[part.type] = part.value;
+                }
+            });
+            const todayStr = `${partMap.year}-${partMap.month}-${partMap.day}`;
+            const isToday = String(date) === todayStr;
+            const currentHour = Number(partMap.hour);
+            const currentMinute = Number(partMap.minute);
+            // Filtra horários disponíveis
             const availableTimes = allTimes.filter(time => {
                 const [h, m] = time.split(':').map(Number);
-                const slotStart = new Date(startOfDay);
-                slotStart.setHours(h, m, 0, 0);
-                const slotEnd = addMinutes(slotStart, slotMinutes);
-                if (isToday && slotStart <= now) {
+                const slotStartMinutes = h * 60 + m;
+                const slotEndMinutes = slotStartMinutes + slotMinutes;
+                // Se for hoje, filtra horários que ja passaram
+                if (isToday) {
+                    if (h < currentHour || (h === currentHour && m <= currentMinute)) {
+                        return false;
+                    }
+                }
+                if (hasClosedRangeConflict(slotStartMinutes, slotEndMinutes, closedRanges)) {
                     return false;
                 }
+                // Verifica se existe agendamento conflitante nesse horário
+                const slotStart = new Date(`${date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00-03:00`);
+                const slotEnd = addMinutes(slotStart, slotMinutes);
                 return !appointments.some(app => {
                     const appStart = new Date(app.startTime);
                     const appEnd = new Date(app.endTime);
@@ -114,6 +159,7 @@ export const AppointmentController = {
             return res.json(availableTimes);
         }
         catch (error) {
+            console.error("Erro em listAvailableTimes:", error);
             return res.status(500).json({ error: "Erro ao buscar horários" });
         }
     },
@@ -133,12 +179,16 @@ export const AppointmentController = {
                 closingTime: 18,
                 closedDays: [0]
             };
-            // Parse da data local sem conversão de fuso horário
+            // Parse da data considerando timezone do Brasil (UTC-3)
+            // Cria o horário local do Brasil e ajusta para UTC antes de salvar
             const [datePart, timePart] = String(startTime).split('T');
             const [year, month, dayOfMonth] = datePart.split('-').map(Number);
             const [hourPart, minutePart, secondPart = '0'] = timePart.split(':');
-            const start = new Date(year, month - 1, dayOfMonth, Number(hourPart), Number(minutePart), Number(secondPart));
-            const hour = start.getHours();
+            // Cria a data em horário local e força interpretação como Brasil
+            const localTimeStr = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}T${String(hourPart).padStart(2, '0')}:${String(minutePart).padStart(2, '0')}:${String(secondPart).padStart(2, '0')}-03:00`;
+            const start = new Date(localTimeStr);
+            const hour = Number(hourPart);
+            const minute = Number(minutePart);
             const day = start.getDay();
             // 2. VALIDAÇÕES DE HORÁRIO
             if (config.closedDays.includes(day)) {
@@ -155,6 +205,29 @@ export const AppointmentController = {
             });
             if (!service)
                 return res.status(404).json({ error: "Serviço não encontrado" });
+            const startMinutes = hour * 60 + minute;
+            const endMinutes = startMinutes + service.durationMinutes;
+            if (endMinutes > config.closingTime * 60) {
+                return res.status(400).json({
+                    error: `O serviço ultrapassa o expediente (${config.openingTime}:00 às ${config.closingTime}:00).`
+                });
+            }
+            const dayStart = new Date(`${datePart}T00:00:00-03:00`);
+            const dayEnd = new Date(`${datePart}T23:59:59.999-03:00`);
+            const closedRanges = await prisma.closedDate.findMany({
+                where: {
+                    date: {
+                        gte: dayStart,
+                        lte: dayEnd
+                    }
+                }
+            });
+            const hasBlockedRange = hasClosedRangeConflict(startMinutes, endMinutes, closedRanges);
+            if (hasBlockedRange) {
+                return res.status(400).json({
+                    error: "Este horário está bloqueado por fechamento excepcional. Escolha outro horário."
+                });
+            }
             const end = addMinutes(start, service.durationMinutes);
             // 4. VERIFICA CONFLITOS DE HORÁRIO
             const conflict = await prisma.appointment.findFirst({

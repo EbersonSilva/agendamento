@@ -53,6 +53,8 @@ model StudioConfig{
 model ClosedDate {
   id          Int      @id @default(autoincrement())
   date        DateTime @db.Date // Data específica de fechamento
+  startTimeMinutes Int?
+  endTimeMinutes   Int?
   reason      String?  // Motivo opcional (ex: "Férias", "Feriado")
   createdAt   DateTime @default(now())
 }

@@ -2,6 +2,20 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { addMinutes } from "date-fns";
 
+function hasClosedRangeConflict(
+  startMinutes: number,
+  endMinutes: number,
+  ranges: Array<{ startTimeMinutes: number | null; endTimeMinutes: number | null }>
+) {
+  return ranges.some(range => {
+    if (range.startTimeMinutes === null || range.endTimeMinutes === null) {
+      return true;
+    }
+
+    return startMinutes < range.endTimeMinutes && endMinutes > range.startTimeMinutes;
+  });
+}
+
 
 export const AppointmentController = {
   // LISTAR AGENDAMENTOS (Visão da Dona)
@@ -75,6 +89,23 @@ export const AppointmentController = {
         }
       });
 
+      const closedRanges = await prisma.closedDate.findMany({
+        where: {
+          date: {
+            gte: dayStart,
+            lte: dayEnd
+          }
+        }
+      });
+
+      const hasFullDayClosure = closedRanges.some(
+        range => range.startTimeMinutes === null || range.endTimeMinutes === null
+      );
+
+      if (hasFullDayClosure) {
+        return res.json([]);
+      }
+
       // Busca configurações do estúdio
       const config = await prisma.studioConfig.findFirst();
       const openingTime = config?.openingTime ?? 8;
@@ -130,12 +161,18 @@ export const AppointmentController = {
       // Filtra horários disponíveis
       const availableTimes = allTimes.filter(time => {
         const [h, m] = time.split(':').map(Number);
+        const slotStartMinutes = h * 60 + m;
+        const slotEndMinutes = slotStartMinutes + slotMinutes;
 
         // Se for hoje, filtra horários que ja passaram
         if (isToday) {
           if (h < currentHour || (h === currentHour && m <= currentMinute)) {
             return false;
           }
+        }
+
+        if (hasClosedRangeConflict(slotStartMinutes, slotEndMinutes, closedRanges)) {
+          return false;
         }
 
         // Verifica se existe agendamento conflitante nesse horário
@@ -185,6 +222,7 @@ export const AppointmentController = {
       const localTimeStr = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}T${String(hourPart).padStart(2, '0')}:${String(minutePart).padStart(2, '0')}:${String(secondPart).padStart(2, '0')}-03:00`;
       const start = new Date(localTimeStr);
       const hour = Number(hourPart);
+      const minute = Number(minutePart);
       const day = start.getDay();
 
       // 2. VALIDAÇÕES DE HORÁRIO
@@ -204,6 +242,34 @@ export const AppointmentController = {
       });
 
       if (!service) return res.status(404).json({ error: "Serviço não encontrado" });
+
+      const startMinutes = hour * 60 + minute;
+      const endMinutes = startMinutes + service.durationMinutes;
+
+      if (endMinutes > config.closingTime * 60) {
+        return res.status(400).json({
+          error: `O serviço ultrapassa o expediente (${config.openingTime}:00 às ${config.closingTime}:00).`
+        });
+      }
+
+      const dayStart = new Date(`${datePart}T00:00:00-03:00`);
+      const dayEnd = new Date(`${datePart}T23:59:59.999-03:00`);
+
+      const closedRanges = await prisma.closedDate.findMany({
+        where: {
+          date: {
+            gte: dayStart,
+            lte: dayEnd
+          }
+        }
+      });
+
+      const hasBlockedRange = hasClosedRangeConflict(startMinutes, endMinutes, closedRanges);
+      if (hasBlockedRange) {
+        return res.status(400).json({
+          error: "Este horário está bloqueado por fechamento excepcional. Escolha outro horário."
+        });
+      }
 
       const end = addMinutes(start, service.durationMinutes);
 

@@ -1,10 +1,26 @@
 import { prisma } from '../lib/prisma.js';
+function parseTimeToMinutes(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+    const raw = String(value);
+    const match = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (!match) {
+        return Number.NaN;
+    }
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    return hours * 60 + minutes;
+}
 export const ClosedDateController = {
     // Listar todas as datas de fechamento
     async index(req, res) {
         try {
             const closedDates = await prisma.closedDate.findMany({
-                orderBy: { date: 'asc' }
+                orderBy: [
+                    { date: 'asc' },
+                    { startTimeMinutes: 'asc' }
+                ]
             });
             return res.json(closedDates);
         }
@@ -15,26 +31,57 @@ export const ClosedDateController = {
     },
     // Criar uma nova data de fechamento
     async create(req, res) {
-        const { date, reason } = req.body;
+        const { date, reason, startTime, endTime } = req.body;
         if (!date) {
             return res.status(400).json({ error: "Data é obrigatória" });
         }
         try {
-            // Converte a string de data para objeto Date
-            const closedDate = new Date(date);
-            // Verifica se já existe fechamento para essa data
-            const existing = await prisma.closedDate.findFirst({
+            // Converte a string de data para objeto Date no timezone local
+            const [year, month, day] = date.split('-').map(Number);
+            const closedDate = new Date(year, month - 1, day);
+            const startTimeMinutes = parseTimeToMinutes(startTime);
+            const endTimeMinutes = parseTimeToMinutes(endTime);
+            if (Number.isNaN(startTimeMinutes) || Number.isNaN(endTimeMinutes)) {
+                return res.status(400).json({ error: 'Horário inválido. Use o formato HH:mm' });
+            }
+            const isFullDay = startTimeMinutes === null && endTimeMinutes === null;
+            if (!isFullDay) {
+                if (startTimeMinutes === null || endTimeMinutes === null) {
+                    return res.status(400).json({ error: 'Informe horário inicial e final para fechamento parcial' });
+                }
+                if (startTimeMinutes >= endTimeMinutes) {
+                    return res.status(400).json({ error: 'Horário final deve ser maior que o horário inicial' });
+                }
+            }
+            const existing = await prisma.closedDate.findMany({
                 where: {
                     date: closedDate
                 }
             });
-            if (existing) {
-                return res.status(409).json({ error: "Já existe um fechamento para esta data" });
+            if (isFullDay && existing.length > 0) {
+                return res.status(409).json({ error: 'Já existe fechamento cadastrado para esta data' });
+            }
+            if (!isFullDay) {
+                const hasFullDay = existing.some(item => item.startTimeMinutes === null || item.endTimeMinutes === null);
+                if (hasFullDay) {
+                    return res.status(409).json({ error: 'Esta data já está fechada o dia todo' });
+                }
+                const hasOverlap = existing.some(item => {
+                    if (item.startTimeMinutes === null || item.endTimeMinutes === null) {
+                        return true;
+                    }
+                    return startTimeMinutes < item.endTimeMinutes && endTimeMinutes > item.startTimeMinutes;
+                });
+                if (hasOverlap) {
+                    return res.status(409).json({ error: 'Já existe um fechamento em conflito com este horário' });
+                }
             }
             const newClosedDate = await prisma.closedDate.create({
                 data: {
                     date: closedDate,
-                    reason: reason || null
+                    reason: reason || null,
+                    startTimeMinutes,
+                    endTimeMinutes
                 }
             });
             return res.status(201).json(newClosedDate);
