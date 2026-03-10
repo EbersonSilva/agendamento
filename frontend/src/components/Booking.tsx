@@ -33,6 +33,14 @@ export function Booking({ mode = 'public' }: BookingProps) {
   const [hasToken] = useState(!!localStorage.getItem('@Estudio:token'));
   const [ownerWhatsApp, setOwnerWhatsApp] = useState('');
   const isAdmin = mode === 'admin';
+  // Admin: horário personalizado
+  const [customTime, setCustomTime] = useState('');
+  const [customTimeError, setCustomTimeError] = useState('');
+  // Admin: observação e conflito
+  const [notes, setNotes] = useState('');
+  const [conflictWarning, setConflictWarning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Função para formatar telefone brasileiro
   const formatPhone = (value: string) => {
@@ -109,32 +117,66 @@ export function Booking({ mode = 'public' }: BookingProps) {
     return `Ola! Acabei de realizar um agendamento online: *Servico:* ${serviceName} *Data:* ${dateText} *Horario:* ${timeText} *Nome:* ${clientName} *WhatsApp:* ${phone}`;
   };
 
-  // Formata os dias para exibição no seletor horizontal
-  const handleFinalSubmit = async (e: React.FormEvent) => {
+  // Admin: aplica horário personalizado digitado
+  const applyCustomTime = () => {
+    if (!customTime) {
+      setCustomTimeError('Informe um horário.');
+      return;
+    }
+    const [h, m] = customTime.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) {
+      setCustomTimeError('Horário inválido.');
+      return;
+    }
+    const finalDate = new Date(selectedDate);
+    finalDate.setHours(h, m, 0, 0);
+    setAppointmentDate(finalDate);
+    setCustomTimeError('');
+    setConflictWarning(false);
+    setStep(3);
+  };
+
+  const handleFinalSubmit = async (e: React.FormEvent, force = false) => {
     e.preventDefault();
+    if (!selectedService) return;
+    setSubmitError('');
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (!normalizedPhone || (normalizedPhone.length !== 10 && normalizedPhone.length !== 11)) {
+      setPhoneError('Informe DDD + número (10 ou 11 dígitos).');
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      if (!selectedService) {
-        return;
+      if (isAdmin) {
+        await api.post('/appointments/admin', {
+          clientName,
+          phone: normalizedPhone,
+          serviceId: selectedService.id,
+          startTime: dateToISOLocal(appointmentDate ?? selectedDate),
+          notes: notes || undefined,
+          forceOverlap: force,
+        });
+      } else {
+        await api.post('/appointments', {
+          clientName,
+          phone: normalizedPhone,
+          serviceId: selectedService.id,
+          startTime: dateToISOLocal(appointmentDate ?? selectedDate),
+        });
       }
-      const normalizedPhone = phone.replace(/\D/g, '');
-      if (!normalizedPhone || (normalizedPhone.length !== 10 && normalizedPhone.length !== 11)) {
-        setPhoneError('Informe DDD + número (10 ou 11 dígitos).');
-        return;
-      }
-      await api.post('/appointments', {
-        clientName,
-        phone: normalizedPhone,
-        serviceId: selectedService.id,
-        startTime: dateToISOLocal(appointmentDate ?? selectedDate),
-      });
-      
-      // Dispara evento para atualizar badge de pendentes no admin
       window.dispatchEvent(new CustomEvent('pendingCountChanged'));
-      
       setStep(4);
     } catch (err) {
       const error = err as AxiosError<{ error: string }>;
-      console.error("Erro ao agendar:", error.response?.data?.error || error.message);
+      if (isAdmin && error.response?.status === 409) {
+        setConflictWarning(true);
+      } else {
+        const message = error.response?.data?.error || 'Não foi possível salvar o agendamento.';
+        setSubmitError(message);
+        console.error('Erro ao agendar:', message);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -224,6 +266,31 @@ export function Booking({ mode = 'public' }: BookingProps) {
                   <p className="col-span-3 text-center text-gray-500 py-4">Nenhum horário disponível para este dia.</p>
                 )}
               </div>
+
+              {/* Input de horário personalizado — apenas para admin */}
+              {isAdmin && (
+                <div className="mt-6 space-y-2 border-t border-gray-100 pt-5">
+                  <p className="text-sm font-semibold text-zinc-700">Ou insira um horário personalizado:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="time"
+                      value={customTime}
+                      onChange={e => { setCustomTime(e.target.value); setCustomTimeError(''); }}
+                      className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-mono text-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyCustomTime}
+                      className="px-5 py-3 bg-zinc-900 text-white rounded-xl font-semibold hover:bg-zinc-700 transition-all"
+                    >
+                      Usar
+                    </button>
+                  </div>
+                  {customTimeError && (
+                    <p className="text-xs text-red-500">{customTimeError}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -265,14 +332,56 @@ export function Booking({ mode = 'public' }: BookingProps) {
                     <p className="text-xs text-red-500">{phoneError}</p>
                   )}
                 </div>
+
+                {/* Campo de observação — apenas admin */}
+                {isAdmin && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-1">Observação (opcional)</label>
+                    <textarea
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      placeholder="Ex: cliente especial, encaixe fora da grade..."
+                      rows={2}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none resize-none"
+                    />
+                  </div>
+                )}
+
                 <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                   <p className="text-xs text-zinc-400 font-bold uppercase mb-1">Resumo do pedido</p>
                   <p className="text-sm"><strong>{selectedService?.name}</strong> em {(appointmentDate ?? selectedDate).toLocaleString()}</p>
+                  {isAdmin && <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Será confirmado automaticamente</p>}
                 </div>
-                <button type="submit"
-                  className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100">
-                  Confirmar Agendamento
-                </button>
+
+                {/* Aviso de conflito de horário — admin pode forçar */}
+                {conflictWarning && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3">
+                    <p className="text-sm font-semibold text-amber-800">⚠️ Conflito de horário detectado!</p>
+                    <p className="text-xs text-amber-700">Já existe um agendamento nesse horário. Você pode forçar o encaixe mesmo assim.</p>
+                    <button
+                      type="button"
+                      onClick={(e) => handleFinalSubmit(e as unknown as React.FormEvent, true)}
+                      disabled={isSubmitting}
+                      className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all disabled:opacity-50"
+                    >
+                      {isSubmitting ? 'Salvando...' : 'Forçar encaixe mesmo assim'}
+                    </button>
+                  </div>
+                )}
+
+                {!conflictWarning && (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Salvando...' : 'Confirmar Agendamento'}
+                  </button>
+                )}
+
+                {submitError && (
+                  <p className="text-xs text-red-600 text-center">{submitError}</p>
+                )}
               </form>
             </div>
           )}

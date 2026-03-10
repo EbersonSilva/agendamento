@@ -17,6 +17,7 @@ router.post('/login', AuthController.store); // Login do admin
 router.get('/appointments', AppointmentController.index);// Lista todos os agendamentos
 router.get('/appointments/available', AppointmentController.listAvailableTimes);// Lista horários disponíveis para agendamento
 router.post('/appointments', AppointmentController.create);// Cria um novo agendamento
+router.post('/appointments/admin', verifyToken, verifyAdmin, AppointmentController.createManual);// Agendamento manual da dona (protegido)
 router.put('/appointments/:id', verifyToken, verifyAdmin, AppointmentController.updateStatus);// Atualiza status de um agendamento (protegido)
 router.put('/appointments/:id/cancel', AppointmentController.cancel);// Cancela um agendamento existente
 
