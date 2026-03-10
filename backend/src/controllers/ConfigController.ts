@@ -18,7 +18,7 @@ export const ConfigController = {
 
     // MÉTODO PARA ATUALIZAR CONFIGURAÇÕES DO ESTÚDIO
     async update(req: Request, res: Response) {
-        const { openingTime, closingTime, closedDays, ownerWhatsApp } = req.body;
+        const { openingTime, closingTime, closedDays, ownerWhatsApp, ownerEmail } = req.body;
         
         // Valida WhatsApp somente se for enviado
         if (ownerWhatsApp !== undefined && ownerWhatsApp !== null && ownerWhatsApp !== '') {
@@ -35,7 +35,10 @@ export const ConfigController = {
         if (ownerWhatsApp !== undefined && ownerWhatsApp !== null && ownerWhatsApp !== '') {
             updateData.ownerWhatsApp = String(ownerWhatsApp).replace(/\D/g, "");
         }
-        
+        if (ownerEmail !== undefined) {
+            updateData.ownerEmail = ownerEmail === '' ? null : String(ownerEmail).trim();
+        }
+
         const existingConfig = await prisma.studioConfig.findFirst();
         if (!existingConfig) {
             const createdConfig = await prisma.studioConfig.create({

@@ -23,6 +23,7 @@ export function AllAppointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [showPast, setShowPast] = useState(false);
 
   async function handleCancel(appointmentId: number, clientName: string) {
     const confirmCancel = window.confirm(
@@ -54,8 +55,8 @@ export function AllAppointments() {
     async function loadAppointments() {
       setLoading(true);
       try {
-        // Busca agendamentos com o filtro de status
-        const url = `/appointments?status=${filterStatus}`;
+        // Busca agendamentos com o filtro de status (por padrão, apenas próximos)
+        const url = `/appointments?status=${filterStatus}&includePast=${showPast}`;
         const response = await api.get(url);
         setAppointments(response.data);
       } catch (error) {
@@ -66,7 +67,7 @@ export function AllAppointments() {
     }
 
     loadAppointments();
-  }, [filterStatus]);
+  }, [filterStatus, showPast]);
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -105,6 +106,18 @@ export function AllAppointments() {
         <div className="flex items-center gap-2 mb-3">
           <Filter size={18} className="text-zinc-500" />
           <span className="text-sm font-semibold text-zinc-700">Filtrar por status:</span>
+        </div>
+        <div className="mb-3">
+          <button
+            onClick={() => setShowPast(prev => !prev)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              showPast
+                ? 'bg-indigo-600 text-white'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+            }`}
+          >
+            {showPast ? 'Ocultar antigos' : 'Mostrar antigos'}
+          </button>
         </div>
         <div className="flex flex-wrap gap-2">
           <button

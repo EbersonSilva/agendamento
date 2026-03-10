@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../service/api';
-import { Clock, Calendar, Save } from 'lucide-react';
+import { Clock, Calendar, Save, Mail } from 'lucide-react';
 import { AxiosError } from 'axios';
 
 interface StudioConfig {
@@ -8,6 +8,7 @@ interface StudioConfig {
   closingTime: number;
   closedDays: number[];
   ownerWhatsApp: string;
+  ownerEmail: string;
 }
 
 export function StudioHours() {
@@ -15,13 +16,16 @@ export function StudioHours() {
     openingTime: 8,
     closingTime: 18,
     closedDays: [0], // Domingo por padrão
-    ownerWhatsApp: ''
+    ownerWhatsApp: '',
+    ownerEmail: ''
   });
   const [loading, setLoading] = useState(true);
   const [savingHours, setSavingHours] = useState(false);
   const [savingWhatsApp, setSavingWhatsApp] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
   const [hoursMessage, setHoursMessage] = useState('');
   const [whatsAppMessage, setWhatsAppMessage] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
 
   const daysOfWeek = [
     { value: 0, label: 'Domingo' },
@@ -54,12 +58,13 @@ export function StudioHours() {
     async function loadConfig() {
       try {
         const response = await api.get('/config');
-        const { openingTime, closingTime, closedDays, ownerWhatsApp } = response.data;
+        const { openingTime, closingTime, closedDays, ownerWhatsApp, ownerEmail } = response.data;
         setConfig({
           openingTime,
           closingTime,
           closedDays,
-          ownerWhatsApp: ownerWhatsApp ? formatPhone(ownerWhatsApp) : ''
+          ownerWhatsApp: ownerWhatsApp ? formatPhone(ownerWhatsApp) : '',
+          ownerEmail: ownerEmail || ''
         });
       } catch (error) {
         console.error('Erro ao carregar configurações:', error);
@@ -135,6 +140,29 @@ export function StudioHours() {
       setTimeout(() => setWhatsAppMessage(''), 3000);
     } finally {
       setSavingWhatsApp(false);
+    }
+  }
+
+  async function handleSaveEmail() {
+    const email = config.ownerEmail.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailMessage('Informe um email válido.');
+      setTimeout(() => setEmailMessage(''), 3000);
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      await api.put('/config', { ownerEmail: email });
+      setEmailMessage('Email salvo com sucesso!');
+      setTimeout(() => setEmailMessage(''), 3000);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+      const serverMessage = axiosError.response?.data?.error || axiosError.response?.data?.message;
+      console.error('Erro ao salvar:', error);
+      setEmailMessage(serverMessage || 'Erro ao salvar email');
+      setTimeout(() => setEmailMessage(''), 3000);
+    } finally {
+      setSavingEmail(false);
     }
   }
 
@@ -270,6 +298,23 @@ export function StudioHours() {
             Esse numero aparece no botao de mensagem apos o agendamento.
           </p>
         </div>
+
+        <div className="border-t border-zinc-100 pt-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 mb-2">
+            <Mail size={15} className="text-zinc-500" />
+            Email para receber notificações de agendamento
+          </label>
+          <input
+            type="email"
+            value={config.ownerEmail}
+            onChange={(e) => setConfig({ ...config, ownerEmail: e.target.value })}
+            placeholder="seuemail@gmail.com"
+            className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+          />
+          <p className="text-xs text-zinc-500 mt-2">
+            Você receberá um email a cada novo agendamento realizado.
+          </p>
+        </div>
       </div>
 
       {/* Botões Salvar */}
@@ -290,6 +335,24 @@ export function StudioHours() {
         >
           <Save size={20} />
           {savingWhatsApp ? 'Salvando...' : 'Salvar WhatsApp'}
+        </button>
+
+        {emailMessage && (
+          <div className={`text-center text-sm py-2 px-4 rounded-xl ${
+            emailMessage.includes('sucesso')
+              ? 'bg-green-50 text-green-700'
+              : 'bg-red-50 text-red-700'
+          }`}>
+            {emailMessage}
+          </div>
+        )}
+        <button
+          onClick={handleSaveEmail}
+          disabled={savingEmail}
+          className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <Mail size={20} />
+          {savingEmail ? 'Salvando...' : 'Salvar Email'}
         </button>
 
         

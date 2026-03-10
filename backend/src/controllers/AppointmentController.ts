@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { addMinutes } from "date-fns";
+import { sendAppointmentNotification } from "../lib/mailer.js";
 
 function hasClosedRangeConflict(
   startMinutes: number,
@@ -21,7 +22,7 @@ export const AppointmentController = {
   // LISTAR AGENDAMENTOS (Visão da Dona)
    async index(req: Request, res: Response) {
     try {
-      const { status, date } = req.query;
+      const { status, date, includePast } = req.query;
 
       const where: Record<string, unknown> = {};
 
@@ -50,6 +51,13 @@ export const AppointmentController = {
         const endOfDay = new Date(searchDate);
         endOfDay.setHours(23, 59, 59, 999);
         where.startTime = { gte: startOfDay, lte: endOfDay };
+      } else {
+        // Por padrão, mostramos apenas agendamentos atuais/futuros para evitar poluir a tela.
+        const includePastValue = Array.isArray(includePast) ? includePast[0] : includePast;
+        const shouldIncludePast = String(includePastValue || '').toLowerCase() === 'true';
+        if (!shouldIncludePast) {
+          where.endTime = { gte: new Date() };
+        }
       }
 
       const appointments = await prisma.appointment.findMany({
@@ -313,6 +321,23 @@ export const AppointmentController = {
         },
       });
 
+      // 7. ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (silencioso — falha não bloqueia resposta)
+      try {
+        const cfg = await prisma.studioConfig.findFirst();
+        if (cfg?.ownerEmail) {
+          await sendAppointmentNotification({
+            ownerEmail: cfg.ownerEmail,
+            clientName,
+            clientPhone: normalizedPhone,
+            serviceName: service.name,
+            startTime: start,
+            isManual: false,
+          });
+        }
+      } catch (emailErr) {
+        console.error('Aviso: falha ao enviar email de notificação:', emailErr);
+      }
+
       return res.status(201).json(appointment);
 
     } catch (error) {
@@ -320,6 +345,110 @@ export const AppointmentController = {
       return res.status(500).json({ error: "Erro ao processar agendamento" });
     }
   },
+
+  // CRIAR AGENDAMENTO MANUAL (Apenas para Admin — sem restrição de grade de horários)
+  async createManual(req: Request, res: Response) {
+    const { clientName, phone, serviceId, startTime, notes, forceOverlap } = req.body;
+
+    try {
+      const normalizedPhone = String(phone || '').replace(/\D/g, '');
+      if (!normalizedPhone || (normalizedPhone.length !== 10 && normalizedPhone.length !== 11)) {
+        return res.status(400).json({
+          error: "Telefone inválido. Informe DDD + número (10 ou 11 dígitos)."
+        });
+      }
+
+      if (!startTime || !serviceId) {
+        return res.status(400).json({ error: "Data/hora e serviço são obrigatórios." });
+      }
+
+      // Suporte a ISO com ou sem timezone. Se não vier offset, assume -03:00.
+      const raw = String(startTime);
+      const hasTimezone = /([+-]\d{2}:\d{2}|Z)$/.test(raw);
+      const hasSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(raw);
+      const localTimeStr = hasTimezone
+        ? raw
+        : hasSeconds
+          ? `${raw}-03:00`
+          : `${raw}:00-03:00`;
+      const start = new Date(localTimeStr);
+
+      if (isNaN(start.getTime())) {
+        return res.status(400).json({ error: "Data/hora inválida." });
+      }
+
+      // Busca o serviço
+      const service = await prisma.service.findUnique({
+        where: { id: Number(serviceId) }
+      });
+      if (!service) return res.status(404).json({ error: "Serviço não encontrado." });
+
+      const end = addMinutes(start, service.durationMinutes);
+
+      // Verifica conflito (pode ser ignorado com forceOverlap = true)
+      if (!forceOverlap) {
+        const conflict = await prisma.appointment.findFirst({
+          where: {
+            NOT: { status: 'canceled' },
+            startTime: { lt: end },
+            endTime: { gt: start },
+          }
+        });
+        if (conflict) {
+          return res.status(409).json({
+            error: "Já existe um agendamento nesse horário. Deseja forçar o encaixe mesmo assim?"
+          });
+        }
+      }
+
+      // Cria o cliente
+      const client = await prisma.user.create({
+        data: {
+          name: clientName,
+          phone: normalizedPhone,
+          passwordHash: "",
+          isAdmin: false
+        }
+      });
+
+      // Cria o agendamento como manual e já confirmado
+      const appointment = await prisma.appointment.create({
+        data: {
+          clientId: client.id,
+          serviceId: Number(serviceId),
+          startTime: start,
+          endTime: end,
+          status: 'confirmed',
+          isManualSlot: true,
+          notes: notes || null
+        },
+        include: { client: true, service: true }
+      });
+
+      // ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (silencioso)
+      try {
+        const cfg = await prisma.studioConfig.findFirst();
+        if (cfg?.ownerEmail) {
+          await sendAppointmentNotification({
+            ownerEmail: cfg.ownerEmail,
+            clientName,
+            clientPhone: normalizedPhone,
+            serviceName: service.name,
+            startTime: start,
+            isManual: true,
+          });
+        }
+      } catch (emailErr) {
+        console.error('Aviso: falha ao enviar email de notificação:', emailErr);
+      }
+
+      return res.status(201).json(appointment);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: "Erro ao criar agendamento manual." });
+    }
+  },
+
   // ATUALIZAR STATUS DO AGENDAMENTO (CONFIRMAR/REJEITAR via WhatsApp)
   async updateStatus(req: Request, res: Response) {
     const { id } = req.params;
