@@ -7,6 +7,13 @@
     <title>Melissa Beauty</title>
   </head>
   <body>
+    <!--
+      env.js é carregado ANTES do React.
+      Em produção, edite public/env.js e defina window.APP_CONFIG.apiUrl
+      com a URL pública do seu backend (ex: https://meu-backend.railway.app).
+      Isso evita precisar reconstruir o frontend ao mudar o endereço da API.
+    -->
+    <script src="/env.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

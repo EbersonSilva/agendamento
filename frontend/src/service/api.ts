@@ -1,31 +1,44 @@
 import axios, { AxiosError } from 'axios';
 
-const normalizeApiUrl = (value?: string) => value?.trim().replace(/\/+$/, '');
-
-const configuredApiUrl = normalizeApiUrl(import.meta.env.VITE_API_URL);
-
-function resolveApiBaseUrl() {
-  if (configuredApiUrl) {
-    return configuredApiUrl;
+declare global {
+  interface Window {
+    APP_CONFIG?: { apiUrl?: string };
   }
-
-  if (!import.meta.env.PROD) {
-    return 'http://localhost:3333';
-  }
-
-  const sameOriginFallback = window.location.origin;
-  console.error(
-    'VITE_API_URL nao esta definido em producao. O frontend vai tentar usar o mesmo dominio do site; se a API estiver em outro dominio, configure VITE_API_URL no deploy.'
-  );
-  return sameOriginFallback;
 }
 
-if (import.meta.env.PROD && !configuredApiUrl) {
-  console.warn('VITE_API_URL nao esta definido em producao. Usando o mesmo dominio do frontend como fallback.');
+function normalizeUrl(value?: string) {
+  return value?.trim().replace(/\/+$/, '') || '';
+}
+
+function resolveApiBaseUrl(): string {
+  // 1. Runtime config — editável em env.js sem precisar reconstruir o frontend
+  const runtimeUrl = normalizeUrl(window.APP_CONFIG?.apiUrl);
+  if (runtimeUrl) return runtimeUrl;
+
+  // 2. Variável de build (VITE_API_URL definida na plataforma de deploy)
+  const buildUrl = normalizeUrl(import.meta.env.VITE_API_URL);
+  if (buildUrl) return buildUrl;
+
+  // 3. Em desenvolvimento usa localhost
+  if (!import.meta.env.PROD) return 'http://localhost:3333';
+
+  // 4. Último recurso: mesmo domínio do frontend (funciona só se backend e
+  //    frontend estiverem no mesmo servidor)
+  console.warn(
+    '[API] URL do backend nao configurada. Defina apiUrl em public/env.js ou a variavel VITE_API_URL no seu servico de deploy. Usando mesmo dominio como fallback: ' +
+      window.location.origin
+  );
+  return window.location.origin;
+}
+
+export const resolvedBaseUrl = resolveApiBaseUrl();
+
+if (import.meta.env.PROD) {
+  console.info('[API] Base URL configurada para:', resolvedBaseUrl);
 }
 
 export const api = axios.create({
-  baseURL: resolveApiBaseUrl(),
+  baseURL: resolvedBaseUrl,
 });
 
 api.interceptors.request.use((config) => {

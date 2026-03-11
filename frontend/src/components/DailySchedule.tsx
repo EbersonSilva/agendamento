@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
-import { api } from '../service/api';
+import { api, resolvedBaseUrl } from '../service/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Phone, Clock, User, CheckCircle, XCircle } from 'lucide-react';
@@ -74,6 +74,9 @@ export function DailySchedule() {
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
         <h1 className="text-xl font-bold">Erro ao carregar agenda</h1>
         <p className="mt-2 text-sm">{error}</p>
+        <p className="mt-3 text-xs text-red-500">
+          URL da API em uso: <code className="bg-red-100 px-1 rounded">{resolvedBaseUrl}</code>
+        </p>
       </div>
     );
   }

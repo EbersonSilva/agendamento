@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
-import { api } from '../service/api';
+import { api, resolvedBaseUrl } from '../service/api';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Phone, Clock, User, Calendar, Filter, CheckCircle, XCircle, Hourglass } from 'lucide-react';
@@ -100,7 +100,12 @@ export function AllAppointments() {
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
         <h1 className="text-xl font-bold">Erro ao carregar agendamentos</h1>
         <p className="mt-2 text-sm">{error}</p>
-        <p className="mt-2 text-sm">Se isso acontecer apenas em producao, confirme a variavel VITE_API_URL do frontend e o dominio real do backend.</p>
+        <p className="mt-3 text-xs text-red-500">
+          URL da API em uso: <code className="bg-red-100 px-1 rounded">{resolvedBaseUrl}</code>
+        </p>
+        <p className="mt-1 text-xs text-red-500">
+          Se estiver errado, edite <code className="bg-red-100 px-1 rounded">public/env.js</code> no servidor de frontend e defina <code className="bg-red-100 px-1 rounded">apiUrl</code> com a URL do backend.
+        </p>
       </div>
     );
   }
