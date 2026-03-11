@@ -65,18 +65,52 @@ export const AppointmentController = {
 
       const appointments = await prisma.appointment.findMany({
         where,
-        include: {
-          client: true,
-          service: true
-        },
         orderBy: {
           startTime: 'asc'
         }
       });
-      return res.json(appointments);
+
+      const clientIds = [...new Set(appointments.map(app => app.clientId))];
+      const serviceIds = [...new Set(appointments.map(app => app.serviceId))];
+
+      const [clients, services] = await Promise.all([
+        prisma.user.findMany({
+          where: { id: { in: clientIds } }
+        }),
+        prisma.service.findMany({
+          where: { id: { in: serviceIds } }
+        })
+      ]);
+
+      const clientMap = new Map(clients.map(client => [client.id, client]));
+      const serviceMap = new Map(services.map(service => [service.id, service]));
+
+      // Filtra registros inconsistentes para evitar quebrar o endpoint em produção.
+      const response = appointments
+        .map(appointment => {
+          const client = clientMap.get(appointment.clientId);
+          const service = serviceMap.get(appointment.serviceId);
+
+          if (!client || !service) {
+            return null;
+          }
+
+          return {
+            ...appointment,
+            client,
+            service,
+          };
+        })
+        .filter((appointment): appointment is NonNullable<typeof appointment> => appointment !== null);
+
+      return res.json(response);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Erro ao buscar agendamentos." });
+      console.error("[AppointmentController.index]", error);
+      const details = error instanceof Error ? error.message : String(error);
+      res.status(500).json({
+        error: "Erro ao buscar agendamentos.",
+        details,
+      });
     }
   },
 
