@@ -86,6 +86,8 @@ export const AppointmentController = {
         return res.status(400).json({ error: "Data é obrigatória" });
       }
 
+      console.log(`[listAvailableTimes] Iniciando busca para data: ${date}, serviceId: ${serviceId}`);
+
       // Busca agendamentos daquele dia considerando horario do Brasil
       const dayStart = new Date(`${date}T00:00:00-03:00`);
       const dayEnd = new Date(`${date}T23:59:59.999-03:00`);
@@ -97,20 +99,24 @@ export const AppointmentController = {
         }
       });
 
+      console.log(`[listAvailableTimes] Agendamentos encontrados para ${date}: ${appointments.length}`);
+
+      // Busca ranges de fechamento para o dia específico (usando apenas a data, sem hora)
       const closedRanges = await prisma.closedDate.findMany({
         where: {
-          date: {
-            gte: dayStart,
-            lte: dayEnd
-          }
+          date: new Date(`${date}T00:00:00-03:00`)
         }
       });
 
+      console.log(`[listAvailableTimes] Ranges fechados encontrados para ${date}: ${closedRanges.length}`, closedRanges);
+
+      // Verifica se há fechamento de dia INTEIRO (ambos nulos)
       const hasFullDayClosure = closedRanges.some(
-        range => range.startTimeMinutes === null || range.endTimeMinutes === null
+        range => range.startTimeMinutes === null && range.endTimeMinutes === null
       );
 
       if (hasFullDayClosure) {
+        console.log(`[listAvailableTimes] Dia ${date} está completamente fechado`);
         return res.json([]);
       }
 
@@ -192,6 +198,16 @@ export const AppointmentController = {
           const appEnd = new Date(app.endTime);
           return appStart < slotEnd && appEnd > slotStart;
         });
+      });
+
+      console.log(`[listAvailableTimes] Data: ${date}, Serviço: ${serviceId}, Horários disponíveis: ${availableTimes.length}, Todos os horários: ${allTimes.length}`, {
+        hasFullDayClosure,
+        closedRangesCount: closedRanges.length,
+        appointmentsCount: appointments.length,
+        openingTime,
+        closingTime,
+        isToday,
+        timeZone: 'America/Sao_Paulo'
       });
 
       return res.json(availableTimes);

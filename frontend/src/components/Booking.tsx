@@ -102,7 +102,14 @@ export function Booking({ mode = 'public' }: BookingProps) {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const serviceParam = selectedService ? `&serviceId=${selectedService.id}` : '';
     api.get(`/appointments/available?date=${dateStr}${serviceParam}`)
-      .then(res => setAvailableTimes(res.data));
+      .then(res => {
+        console.log('Horários recebidos:', res.data);
+        setAvailableTimes(res.data);
+      })
+      .catch(error => {
+        console.error('Erro ao buscar horários:', error);
+        setAvailableTimes([]);
+      });
   }, [selectedDate, selectedService]);
 
   // Converte data local para ISO sem mudar o horário por fuso horário
