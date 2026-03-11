@@ -52,10 +52,13 @@ export const AppointmentController = {
         endOfDay.setHours(23, 59, 59, 999);
         where.startTime = { gte: startOfDay, lte: endOfDay };
       } else {
-        // Por padrão, mostramos apenas agendamentos atuais/futuros para evitar poluir a tela.
+        // Sem data, so aplica filtro de "futuros" quando nao ha filtro explicito de status.
+        // Isso evita esconder historico em telas administrativas com status definido.
         const includePastValue = Array.isArray(includePast) ? includePast[0] : includePast;
         const shouldIncludePast = String(includePastValue || '').toLowerCase() === 'true';
-        if (!shouldIncludePast) {
+        const hasExplicitStatus = Boolean(statusValue) && String(statusValue).toLowerCase() !== 'all';
+
+        if (!shouldIncludePast && !hasExplicitStatus) {
           where.endTime = { gte: new Date() };
         }
       }
