@@ -1,7 +1,31 @@
 import axios, { AxiosError } from 'axios';
 
+const normalizeApiUrl = (value?: string) => value?.trim().replace(/\/+$/, '');
+
+const configuredApiUrl = normalizeApiUrl(import.meta.env.VITE_API_URL);
+
+function resolveApiBaseUrl() {
+  if (configuredApiUrl) {
+    return configuredApiUrl;
+  }
+
+  if (!import.meta.env.PROD) {
+    return 'http://localhost:3333';
+  }
+
+  const sameOriginFallback = window.location.origin;
+  console.error(
+    'VITE_API_URL nao esta definido em producao. O frontend vai tentar usar o mesmo dominio do site; se a API estiver em outro dominio, configure VITE_API_URL no deploy.'
+  );
+  return sameOriginFallback;
+}
+
+if (import.meta.env.PROD && !configuredApiUrl) {
+  console.warn('VITE_API_URL nao esta definido em producao. Usando o mesmo dominio do frontend como fallback.');
+}
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3333',
+  baseURL: resolveApiBaseUrl(),
 });
 
 api.interceptors.request.use((config) => {

@@ -1,6 +1,7 @@
 
 
 import { useEffect, useState } from 'react';
+import { AxiosError } from 'axios';
 import { api } from '../service/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,6 +22,7 @@ interface Appointment {
 export function DailySchedule() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -47,11 +49,16 @@ export function DailySchedule() {
   useEffect(() => {
     async function loadAppointments() {
       try {
+        setError(null);
         // Buscamos apenas os confirmados do dia atual
         const response = await api.get(`/appointments?date=${today}&status=confirmed`);
         setAppointments(response.data);
-      } catch (error) {
-        console.error("Erro ao carregar agenda:", error);
+      } catch (err) {
+        const axiosError = err as AxiosError<{ error?: string }>;
+        const errorMessage = axiosError.response?.data?.error || 'Nao foi possivel carregar a agenda do dia. Verifique a API configurada em producao.';
+        setAppointments([]);
+        setError(errorMessage);
+        console.error("Erro ao carregar agenda:", err);
       } finally {
         setLoading(false);
       }
@@ -61,6 +68,15 @@ export function DailySchedule() {
   }, [today]);
 
   if (loading) return <div className="p-8 text-center text-zinc-500">Carregando agenda...</div>;
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
+        <h1 className="text-xl font-bold">Erro ao carregar agenda</h1>
+        <p className="mt-2 text-sm">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">

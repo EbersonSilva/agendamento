@@ -34,6 +34,7 @@ export function AdminDashboard() {
         const response = await api.get('/appointments?status=pending');
         setPendingCount(response.data.length);
       } catch (error) {
+        setPendingCount(0);
         console.error('Erro ao carregar pendentes:', error);
       }
     }

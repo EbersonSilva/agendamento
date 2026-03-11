@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AxiosError } from 'axios';
 import { api } from '../service/api';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,6 +23,7 @@ type FilterStatus = 'all' | 'confirmed' | 'pending' | 'canceled';
 export function AllAppointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [showPast, setShowPast] = useState(false);
 
@@ -54,13 +56,18 @@ export function AllAppointments() {
   useEffect(() => {
     async function loadAppointments() {
       setLoading(true);
+      setError(null);
       try {
         // Busca agendamentos com o filtro de status (por padrão, apenas próximos)
         const url = `/appointments?status=${filterStatus}&includePast=${showPast}`;
         const response = await api.get(url);
         setAppointments(response.data);
-      } catch (error) {
-        console.error("Erro ao carregar agendamentos:", error);
+      } catch (err) {
+        const axiosError = err as AxiosError<{ error?: string }>;
+        const errorMessage = axiosError.response?.data?.error || 'Nao foi possivel carregar os agendamentos. Verifique a configuracao da API em producao.';
+        setAppointments([]);
+        setError(errorMessage);
+        console.error("Erro ao carregar agendamentos:", err);
       } finally {
         setLoading(false);
       }
@@ -87,6 +94,16 @@ export function AllAppointments() {
   };
 
   if (loading) return <div className="p-8 text-center text-zinc-500">Carregando agendamentos...</div>;
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
+        <h1 className="text-xl font-bold">Erro ao carregar agendamentos</h1>
+        <p className="mt-2 text-sm">{error}</p>
+        <p className="mt-2 text-sm">Se isso acontecer apenas em producao, confirme a variavel VITE_API_URL do frontend e o dominio real do backend.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
