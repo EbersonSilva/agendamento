@@ -84,6 +84,14 @@ JWT_SECRET="sua_chave_secreta_aqui"
 PORT=3000
 ```
 
+Para ambiente de produção, instale somente dependências de runtime com:
+
+```bash
+npm install --omit=dev
+```
+
+Evite usar `--production` ou `npm config production`, pois geram aviso nas versões atuais do npm.
+
 #### Configurar banco de dados
 
 ```bash
