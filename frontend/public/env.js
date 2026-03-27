@@ -8,7 +8,8 @@
  *
  * Deixe em branco ("") para usar o mesmo domínio do frontend (só funciona se
  * o backend estiver no mesmo servidor/domínio que o frontend).
+ * http://localhost:8080
  */
 window.APP_CONFIG = {
-  apiUrl: "http://localhost:8080"
+  apiUrl: ""
 };
