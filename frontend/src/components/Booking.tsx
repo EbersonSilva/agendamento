@@ -203,7 +203,7 @@ export function Booking({ mode = 'public' }: BookingProps) {
         <div className="bg-zinc-900 p-6 text-white">
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight">
-              {isAdmin ? 'Novo agendamento' : 'Melissa Beaulty'}
+              {isAdmin ? 'Novo agendamento' : 'Melissa Beauty'}
             </h1>
             <p className="text-zinc-400 text-sm mt-1">
               {isAdmin ? 'Agende um cliente manualmente' : 'Sua melhor versão começa aqui'}
