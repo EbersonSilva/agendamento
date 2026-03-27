@@ -111,9 +111,17 @@ npm run dev
 ```bash
 cd frontend
 npm install
+```
 
-# Configure o arquivo .env (se necessário)
-VITE_API_URL=http://localhost:3000
+#### Configurar URL da API
+
+Edite `public/env.js` para apontar para o backend:
+
+```javascript
+window.APP_CONFIG = {
+  apiUrl: "http://localhost:8080"  // Desenvolvimento local
+  // apiUrl: "https://agendamento-production-6ab3.up.railway.app"  // Produção
+};
 ```
 
 #### Iniciar aplicação
@@ -160,9 +168,69 @@ npx prisma studio
 
 ## 🚀 Deploy
 
-O projeto pode ser facilmente deployado em plataformas como:
-- **Backend**: Heroku, Railway, Render, Azure
-- **Frontend**: Vercel, Netlify, GitHub Pages
+### 📍 URLs de Produção
+
+- **Frontend**: https://agendamento.melbeauty.com.br
+- **Backend**: https://agendamento-production-6ab3.up.railway.app
+
+### Configuração em Produção
+
+#### Frontend (Vercel)
+
+1. O frontend está hospedado no Vercel e acessível via subdomínio `agendamento.melbeauty.com.br`
+2. A URL da API está configurada em `public/env.js`:
+
+```javascript
+window.APP_CONFIG = {
+  apiUrl: "https://agendamento-production-6ab3.up.railway.app"
+};
+```
+
+#### Backend (Railway)
+
+1. O backend está hospedado no Railway e responde em `https://agendamento-production-6ab3.up.railway.app`
+2. Variáveis de ambiente configuradas no Railway:
+   - `DATABASE_URL`: Conexão com banco de dados PostgreSQL
+   - `JWT_SECRET`: Chave secreta para autenticação
+   - `PORT`: Porta (Railway define automaticamente)
+   - `NODE_ENV`: `production`
+
+#### DNS no Hostinger
+
+O subdomínio `agendamento.melbeauty.com.br` está apontado para o Vercel via registro CNAME.
+
+### Plataformas de Deploy Suportadas
+
+- **Backend**: Railway ✅, Heroku, Render, Azure
+- **Frontend**: Vercel ✅, Netlify, GitHub Pages
+
+## 📝 Contribuindo
+
+### Checklist de Deploy para Novo Subdomínio
+
+Se precisar configurar um novo subdomínio para a aplicação:
+
+- [ ] **Hostinger - Criar registro DNS**
+  1. Painel → Domínios → melbeauty.com.br → Gerenciar DNS
+  2. Novo registro CNAME apontando para `cname.vercel-dns.com.`
+
+- [ ] **Vercel - Adicionar domínio**
+  1. Dashboard → Projeto → Settings → Domains
+  2. Adicionar `agendamento.melbeauty.com.br`
+  3. Aguardar propagação DNS (até 24h)
+
+- [ ] **Frontend - Atualizar env.js**
+  1. Editar `frontend/public/env.js`
+  2. Configurar `apiUrl` com a URL do backend
+
+- [ ] **Backend - Configurar CORS**
+  1. Verificar que o backend permite requisições do frontend
+  2. Se necessário, atualizar `server.ts` com domínio whitelist
+
+- [ ] **Testes**
+  1. Testar agendamento completo
+  2. Verificar autenticação JWT
+  3. Verificar resposta de `/health` do backend
 
 ## 📝 Contribuindo
 
