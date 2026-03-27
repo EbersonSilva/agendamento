@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { Booking } from "./components/Booking"
 import { DailySchedule } from "./components/DailySchedule"
 import { AllAppointments } from "./components/AllAppointments"
@@ -26,6 +26,7 @@ export default function App() {
           <Route path="configuracoes" element={<Settings/>} />
           <Route path="alterar-senha" element={<ChangePassword />} />
         </Route>
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
