@@ -10,5 +10,5 @@
  * o backend estiver no mesmo servidor/domínio que o frontend).
  */
 window.APP_CONFIG = {
-  apiUrl: ""
+  apiUrl: "http://localhost:8080"
 };
