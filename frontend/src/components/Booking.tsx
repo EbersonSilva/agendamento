@@ -20,6 +20,34 @@ interface ClosedDateItem {
   endTimeMinutes?: number | null;
 }
 
+interface ServiceCachePayload {
+  data: Service[];
+  savedAt: number;
+}
+
+const SERVICE_CACHE_KEY = '@Estudio:services:active:v1';
+
+function readServicesCache(): ServiceCachePayload | null {
+  try {
+    const raw = localStorage.getItem(SERVICE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ServiceCachePayload;
+    if (!Array.isArray(parsed?.data)) return null;
+    if (typeof parsed?.savedAt !== 'number') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeServicesCache(data: Service[]) {
+  const payload: ServiceCachePayload = {
+    data,
+    savedAt: Date.now(),
+  };
+  localStorage.setItem(SERVICE_CACHE_KEY, JSON.stringify(payload));
+}
+
 // O componente Booking é usado tanto para o cliente (modo "public") quanto para o admin criar agendamento manualmente (modo "admin")
 interface BookingProps {
   mode?: 'public' | 'admin';
@@ -28,6 +56,8 @@ interface BookingProps {
 export function Booking({ mode = 'public' }: BookingProps) {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState<Service[]>([]);
+  const [isUsingCachedServices, setIsUsingCachedServices] = useState(false);
+  const [cachedServicesUpdatedAt, setCachedServicesUpdatedAt] = useState<number | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
@@ -68,23 +98,49 @@ export function Booking({ mode = 'public' }: BookingProps) {
 
 // Carrega serviços e dias fechados do backend ao iniciar
   useEffect(() => {
-    api.get('/services').then(response => {
-      // Filtra apenas serviços ativos para agendamento
-      const activeServices = response.data.filter((service: Service) => service.active);
-      setServices(activeServices);
-    });
-    api.get('/config').then(response => {
-      setClosedDays(response.data.closedDays || []);
-      setOwnerWhatsApp(response.data.ownerWhatsApp || '');
-    });
-    api.get('/closed-dates').then(response => {
-      const dates = (response.data as ClosedDateItem[])
-        .filter(item => item.startTimeMinutes == null && item.endTimeMinutes == null)
-        .map(item => 
-        format(new Date(item.date), 'yyyy-MM-dd')
-      );
-      setFullClosedDates(dates);
-    });
+    const cachedPayload = readServicesCache();
+    if (cachedPayload?.data.length) {
+      setServices(cachedPayload.data);
+      setIsUsingCachedServices(true);
+      setCachedServicesUpdatedAt(cachedPayload.savedAt);
+    }
+
+    api.get('/services?active=true')
+      .then(response => {
+        console.log('✅ Serviços carregados:', response.data);
+        setServices(response.data);
+        writeServicesCache(response.data);
+        setIsUsingCachedServices(false);
+        setCachedServicesUpdatedAt(Date.now());
+      })
+      .catch(error => {
+        console.error('❌ Erro ao carregar serviços:', error.message);
+        if (!cachedPayload?.data.length) {
+          setIsUsingCachedServices(false);
+        }
+      });
+    
+    api.get('/config')
+      .then(response => {
+        setClosedDays(response.data.closedDays || []);
+        setOwnerWhatsApp(response.data.ownerWhatsApp || '');
+      })
+      .catch(error => {
+        console.error('❌ Erro ao carregar config:', error.message);
+      });
+    
+    api.get('/closed-dates')
+      .then(response => {
+        const dates = (response.data as ClosedDateItem[])
+          .filter(item => item.startTimeMinutes == null && item.endTimeMinutes == null)
+          .map(item => 
+          format(new Date(item.date), 'yyyy-MM-dd')
+        );
+        setFullClosedDates(dates);
+      })
+      .catch(error => {
+        console.error('❌ Erro ao carregar closed-dates:', error.message);
+      });
   }, []);
 
   // Gera uma lista de dias para os próximos 14 dias
@@ -216,6 +272,19 @@ export function Booking({ mode = 'public' }: BookingProps) {
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="text-xl font-semibold tracking-tight">1. Escolha o Serviço</h2>
+              {isUsingCachedServices && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Você está vendo os últimos serviços salvos no aparelho (modo offline).
+                  {cachedServicesUpdatedAt && (
+                    <span className="block mt-1 text-amber-700">
+                      Última sincronização: {new Date(cachedServicesUpdatedAt).toLocaleString('pt-BR')}
+                    </span>
+                  )}
+                </p>
+              )}
+              {services.length === 0 && (
+                <p className="text-sm text-gray-500">Nenhum serviço disponível no momento. Verifique sua conexão e tente novamente.</p>
+              )}
               {services.map(s => (
                 <button key={s.id} onClick={() => { setSelectedService(s); setStep(2); }}// Função fictícia para armazenar o serviço selecionado
                   className="w-full text-left p-4 rounded-2xl border-2 border-gray-100 hover:border-zinc-900 transition-all group active:scale-95">

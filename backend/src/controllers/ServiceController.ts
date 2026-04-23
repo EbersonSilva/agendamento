@@ -1,15 +1,14 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { getCachedServices, invalidateServiceCache } from '../lib/serviceCache.js';
 
 export const ServiceController ={
     async index (req: Request, res: Response) {
         try {
-            const services = await prisma.service.findMany({
-                orderBy: { // Ordena por nome em ordem crescente
-                    name: 'asc'
-                }
-            });
-            return res.status(200).json(services);
+            const onlyActive = req.query.active === 'true';
+            const services = await getCachedServices();
+            const response = onlyActive ? services.filter((service) => service.active) : services;
+            return res.status(200).json(response);
         } catch (error) {
             console.error(error);
             return res.status(500).json({ error: "Erro ao buscar serviços" });
@@ -27,6 +26,7 @@ export const ServiceController ={
                     durationMinutes: parseInt(duration)
                 }
             });
+            invalidateServiceCache();
             return res.status(201).json(newService)
         } catch (error) {
             return res.status(400).json({ error: "Erro ao criar serviço" });
@@ -46,6 +46,7 @@ export const ServiceController ={
                     durationMinutes: duration ? parseInt(duration) : undefined
                 }
             });
+            invalidateServiceCache();
             return res.status(200).json(updatedService);
         } catch (error) {
             return res.status(400).json({ error: "Erro ao atualizar serviço" });
@@ -87,6 +88,7 @@ export const ServiceController ={
                 where: { id: Number(id) },
                 data: { active: false }
             });
+            invalidateServiceCache();
             return res.status(200).json(updatedService);
         } catch (error) {
             return res.status(400).json({ error: "Erro ao desativar serviço" });
@@ -100,6 +102,7 @@ export const ServiceController ={
                 where: { id: Number(id) },
                 data: { active: true }
             });
+            invalidateServiceCache();
             return res.status(200).json(updatedService);
         } catch (error) {
             return res.status(400).json({ error: "Erro ao ativar serviço" });

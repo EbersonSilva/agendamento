@@ -11,5 +11,5 @@
  * http://localhost:8080
  */
 window.APP_CONFIG = {
-  apiUrl: ""
+  apiUrl: "http://localhost:8080"
 };

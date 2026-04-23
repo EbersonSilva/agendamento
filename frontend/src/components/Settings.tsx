@@ -14,11 +14,41 @@ interface Service {
   active: boolean;
 }
 
+interface ServicesCachePayload {
+  data: Service[];
+  savedAt: number;
+}
+
+const SERVICES_CACHE_KEY = '@Estudio:services:all:v1';
+
+function readServicesCache(): ServicesCachePayload | null {
+  try {
+    const raw = localStorage.getItem(SERVICES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ServicesCachePayload;
+    if (!Array.isArray(parsed?.data)) return null;
+    if (typeof parsed?.savedAt !== 'number') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeServicesCache(data: Service[]) {
+  const payload: ServicesCachePayload = {
+    data,
+    savedAt: Date.now(),
+  };
+  localStorage.setItem(SERVICES_CACHE_KEY, JSON.stringify(payload));
+}
+
 type Tab = 'services' | 'hours' | 'closed';
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>('services');
   const [services, setServices] = useState<Service[]>([]);
+  const [isUsingCachedServices, setIsUsingCachedServices] = useState(false);
+  const [cachedServicesUpdatedAt, setCachedServicesUpdatedAt] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -36,8 +66,20 @@ export function Settings() {
   }
 
   async function loadServices() {
-    const response = await api.get('/services');
-    setServices(response.data);
+    try {
+      const response = await api.get('/services');
+      setServices(response.data);
+      writeServicesCache(response.data);
+      setIsUsingCachedServices(false);
+      setCachedServicesUpdatedAt(Date.now());
+    } catch {
+      const cachedPayload = readServicesCache();
+      if (cachedPayload?.data.length) {
+        setServices(cachedPayload.data);
+        setIsUsingCachedServices(true);
+        setCachedServicesUpdatedAt(cachedPayload.savedAt);
+      }
+    }
   }
 
   async function handleDisableService() {
@@ -65,7 +107,16 @@ export function Settings() {
 
   useEffect(() => {
     if (activeTab === 'services') {
-      loadServices();
+      const cachedPayload = readServicesCache();
+      if (cachedPayload?.data.length) {
+        setServices(cachedPayload.data);
+        setIsUsingCachedServices(true);
+        setCachedServicesUpdatedAt(cachedPayload.savedAt);
+      }
+
+      loadServices().catch((error) => {
+        console.error('Erro ao carregar serviços:', error);
+      });
     }
   }, [activeTab]);
 
@@ -105,6 +156,14 @@ export function Settings() {
               <div>
                 <h2 className="text-xl font-bold text-zinc-900">Serviços Oferecidos</h2>
                 <p className="text-sm text-zinc-500">Gerencie o catálogo de serviços</p>
+                {isUsingCachedServices && (
+                  <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Exibindo serviços em cache (offline).
+                    {cachedServicesUpdatedAt && (
+                      <span className="block mt-1">Última sincronização: {new Date(cachedServicesUpdatedAt).toLocaleString('pt-BR')}</span>
+                    )}
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => {

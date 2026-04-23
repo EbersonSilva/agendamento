@@ -81,7 +81,7 @@ npm install
 # Crie um arquivo .env na raiz de /backend
 DATABASE_URL="postgresql://usuario:senha@localhost:5432/studio_db"
 JWT_SECRET="sua_chave_secreta_aqui"
-PORT=3000
+PORT=8080
 ```
 
 Para ambiente de produção, instale somente dependências de runtime com:
@@ -103,7 +103,7 @@ npx prisma generate  # Gerar Prisma Client
 
 ```bash
 npm run dev
-# Servidor rodará em http://localhost:3000
+# Servidor rodará em http://localhost:8080
 ```
 
 ### 2️⃣ Configuração do Frontend

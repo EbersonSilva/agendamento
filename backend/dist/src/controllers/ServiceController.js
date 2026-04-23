@@ -1,13 +1,12 @@
 import { prisma } from '../lib/prisma.js';
+import { getCachedServices, invalidateServiceCache } from '../lib/serviceCache.js';
 export const ServiceController = {
     async index(req, res) {
         try {
-            const services = await prisma.service.findMany({
-                orderBy: {
-                    name: 'asc'
-                }
-            });
-            return res.status(200).json(services);
+            const onlyActive = req.query.active === 'true';
+            const services = await getCachedServices();
+            const response = onlyActive ? services.filter((service) => service.active) : services;
+            return res.status(200).json(response);
         }
         catch (error) {
             console.error(error);
@@ -24,6 +23,7 @@ export const ServiceController = {
                     durationMinutes: parseInt(duration)
                 }
             });
+            invalidateServiceCache();
             return res.status(201).json(newService);
         }
         catch (error) {
@@ -42,6 +42,7 @@ export const ServiceController = {
                     durationMinutes: duration ? parseInt(duration) : undefined
                 }
             });
+            invalidateServiceCache();
             return res.status(200).json(updatedService);
         }
         catch (error) {
@@ -79,6 +80,7 @@ export const ServiceController = {
                 where: { id: Number(id) },
                 data: { active: false }
             });
+            invalidateServiceCache();
             return res.status(200).json(updatedService);
         }
         catch (error) {
@@ -92,6 +94,7 @@ export const ServiceController = {
                 where: { id: Number(id) },
                 data: { active: true }
             });
+            invalidateServiceCache();
             return res.status(200).json(updatedService);
         }
         catch (error) {

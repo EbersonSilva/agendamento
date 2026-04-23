@@ -20,7 +20,7 @@ function resolveApiBaseUrl(): string {
   if (buildUrl) return buildUrl;
 
   // 3. Em desenvolvimento usa localhost
-  if (!import.meta.env.PROD) return 'http://localhost:3333';
+  if (!import.meta.env.PROD) return 'http://localhost:8080';
 
   // 4. Último recurso: mesmo domínio do frontend (funciona só se backend e
   //    frontend estiverem no mesmo servidor)
@@ -35,6 +35,9 @@ export const resolvedBaseUrl = resolveApiBaseUrl();
 
 if (import.meta.env.PROD) {
   console.info('[API] Base URL configurada para:', resolvedBaseUrl);
+} else {
+  console.log('[API] Base URL de DEV:', resolvedBaseUrl);
+  console.log('[API] window.APP_CONFIG:', window.APP_CONFIG);
 }
 
 export const api = axios.create({
