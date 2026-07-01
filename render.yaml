@@ -1,7 +1,3 @@
-databases:
-  - name: agendamento-db
-    plan: free
-
 services:
 
   - type: web
@@ -9,24 +5,30 @@ services:
     runtime: node
     rootDir: backend
     plan: free
-    buildCommand: npm install; npx prisma generate; npm run build
+    buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        sync: false
       - key: JWT_SECRET
         sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: agendamento-db
-          property: connectionString
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
 
   - type: web
     name: agendamento-frontend
     runtime: static
     rootDir: frontend
     plan: free
-    buildCommand: npm install; npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
