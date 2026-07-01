@@ -13,7 +13,7 @@ export const ConfigController = {
     },
     // MÉTODO PARA ATUALIZAR CONFIGURAÇÕES DO ESTÚDIO
     async update(req, res) {
-        const { openingTime, closingTime, closedDays, ownerWhatsApp, ownerEmail } = req.body;
+        const { openingTime, closingTime, closedDays, ownerWhatsApp, ownerEmail, allowPublicBookings } = req.body;
         // Valida WhatsApp somente se for enviado
         if (ownerWhatsApp !== undefined && ownerWhatsApp !== null && ownerWhatsApp !== '') {
             const normalizedOwnerWhatsApp = String(ownerWhatsApp).replace(/\D/g, "");
@@ -28,6 +28,8 @@ export const ConfigController = {
             updateData.closingTime = closingTime;
         if (closedDays !== undefined)
             updateData.closedDays = closedDays;
+        if (allowPublicBookings !== undefined)
+            updateData.allowPublicBookings = allowPublicBookings;
         if (ownerWhatsApp !== undefined && ownerWhatsApp !== null && ownerWhatsApp !== '') {
             updateData.ownerWhatsApp = String(ownerWhatsApp).replace(/\D/g, "");
         }

@@ -44,13 +44,14 @@ model Appointment {
 }
 
 model StudioConfig {
-  id            Int      @id @default(autoincrement())
-  closedDays    Int[]    @default([0])
-  createdAt     DateTime @updatedAt
-  closingTime   Int      @default(18)
-  openingTime   Int      @default(8)
-  ownerWhatsApp String?
-  ownerEmail    String?  // Email da dona para receber notificações de agendamento
+  id                  Int      @id @default(autoincrement())
+  closedDays          Int[]    @default([0])
+  createdAt           DateTime @updatedAt
+  closingTime         Int      @default(18)
+  openingTime         Int      @default(8)
+  ownerWhatsApp       String?
+  ownerEmail          String?  // Email da dona para receber notificações de agendamento
+  allowPublicBookings Boolean  @default(true)
 }
 
 model ClosedDate {

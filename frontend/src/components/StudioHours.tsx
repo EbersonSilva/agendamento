@@ -9,6 +9,7 @@ interface StudioConfig {
   closedDays: number[];
   ownerWhatsApp: string;
   ownerEmail: string;
+  allowPublicBookings: boolean;
 }
 
 export function StudioHours() {
@@ -17,15 +18,18 @@ export function StudioHours() {
     closingTime: 18,
     closedDays: [0], // Domingo por padrão
     ownerWhatsApp: '',
-    ownerEmail: ''
+    ownerEmail: '',
+    allowPublicBookings: true
   });
   const [loading, setLoading] = useState(true);
   const [savingHours, setSavingHours] = useState(false);
   const [savingWhatsApp, setSavingWhatsApp] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPublicBookings, setSavingPublicBookings] = useState(false);
   const [hoursMessage, setHoursMessage] = useState('');
   const [whatsAppMessage, setWhatsAppMessage] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
+  const [bookingToggleMessage, setBookingToggleMessage] = useState('');
 
   const daysOfWeek = [
     { value: 0, label: 'Domingo' },
@@ -58,13 +62,14 @@ export function StudioHours() {
     async function loadConfig() {
       try {
         const response = await api.get('/config');
-        const { openingTime, closingTime, closedDays, ownerWhatsApp, ownerEmail } = response.data;
+        const { openingTime, closingTime, closedDays, ownerWhatsApp, ownerEmail, allowPublicBookings } = response.data;
         setConfig({
           openingTime,
           closingTime,
           closedDays,
           ownerWhatsApp: ownerWhatsApp ? formatPhone(ownerWhatsApp) : '',
-          ownerEmail: ownerEmail || ''
+          ownerEmail: ownerEmail || '',
+          allowPublicBookings: allowPublicBookings !== undefined ? allowPublicBookings : true
         });
       } catch (error) {
         console.error('Erro ao carregar configurações:', error);
@@ -163,6 +168,22 @@ export function StudioHours() {
       setTimeout(() => setEmailMessage(''), 3000);
     } finally {
       setSavingEmail(false);
+    }
+  }
+
+  async function handleTogglePublicBookings() {
+    const newValue = !config.allowPublicBookings;
+    setSavingPublicBookings(true);
+    try {
+      await api.put('/config', { allowPublicBookings: newValue });
+      setConfig(prev => ({ ...prev, allowPublicBookings: newValue }));
+      setBookingToggleMessage(newValue ? 'Agendamentos online ativados!' : 'Agendamentos online desativados!');
+      setTimeout(() => setBookingToggleMessage(''), 3000);
+    } catch (error) {
+      console.error('Erro ao alterar permissão de agendamentos:', error);
+      alert('Erro ao alterar status do agendamento online.');
+    } finally {
+      setSavingPublicBookings(false);
     }
   }
 
@@ -274,6 +295,32 @@ export function StudioHours() {
             );
           })}
         </div>
+      </div>
+
+      {/* Configuração de Agendamentos Online */}
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-zinc-100 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-zinc-900">Agendamentos Online</h3>
+            <p className="text-xs text-zinc-500">
+              Ative ou desative o agendamento público feito pelas clientes no site.
+            </p>
+          </div>
+          <button
+            onClick={handleTogglePublicBookings}
+            disabled={savingPublicBookings}
+            className={`w-14 h-8 flex items-center rounded-full p-1 transition-all outline-none ${
+              config.allowPublicBookings ? "bg-green-600 justify-end" : "bg-zinc-300 justify-start"
+            }`}
+          >
+            <div className="bg-white w-6 h-6 rounded-full shadow-md transition-all" />
+          </button>
+        </div>
+        {bookingToggleMessage && (
+          <div className="text-center text-sm py-2 px-4 rounded-xl bg-green-50 text-green-700 animate-fade-in">
+            {bookingToggleMessage}
+          </div>
+        )}
       </div>
 
       {/* Contato */}

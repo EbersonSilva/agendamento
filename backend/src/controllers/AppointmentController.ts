@@ -267,11 +267,18 @@ export const AppointmentController = {
       }
 
       // 1. BUSCA CONFIGURAÇÕES DO ESTÚDIO
-      const config = await prisma.studioConfig.findFirst() || {
+      const config = (await prisma.studioConfig.findFirst() || {
         openingTime: 8,
         closingTime: 18,
-        closedDays: [0]
-      };
+        closedDays: [0],
+        allowPublicBookings: true
+      }) as any;
+
+      if (config.allowPublicBookings === false) {
+        return res.status(403).json({
+          error: "Os agendamentos online estão temporariamente desativados pelo administrador. Entre em contato por WhatsApp."
+        });
+      }
 
       // Parse da data considerando timezone do Brasil (UTC-3)
       // Cria o horário local do Brasil e ajusta para UTC antes de salvar

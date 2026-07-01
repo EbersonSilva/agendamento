@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../service/api';
-import { CheckCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, ArrowLeft, CalendarX } from 'lucide-react';
 import { format, addDays, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AxiosError } from 'axios';
@@ -69,6 +69,7 @@ export function Booking({ mode = 'public' }: BookingProps) {
   const [fullClosedDates, setFullClosedDates] = useState<string[]>([]);
   const [hasToken] = useState(!!localStorage.getItem('@Estudio:token'));
   const [ownerWhatsApp, setOwnerWhatsApp] = useState('');
+  const [allowPublicBookings, setAllowPublicBookings] = useState(true);
   const isAdmin = mode === 'admin';
   // Admin: horário personalizado
   const [customTime, setCustomTime] = useState('');
@@ -124,6 +125,7 @@ export function Booking({ mode = 'public' }: BookingProps) {
       .then(response => {
         setClosedDays(response.data.closedDays || []);
         setOwnerWhatsApp(response.data.ownerWhatsApp || '');
+        setAllowPublicBookings(response.data.allowPublicBookings !== undefined ? response.data.allowPublicBookings : true);
       })
       .catch(error => {
         console.error('❌ Erro ao carregar config:', error.message);
@@ -250,6 +252,41 @@ export function Booking({ mode = 'public' }: BookingProps) {
       setIsSubmitting(false);
     }
   };
+
+  if (!isAdmin && !allowPublicBookings) {
+    const waLink = ownerWhatsApp
+      ? `https://api.whatsapp.com/send?phone=55${ownerWhatsApp}&text=Olá! Gostaria de fazer um agendamento.`
+      : '#';
+
+    return (
+      <div className="min-h-screen bg-gray-50 py-10 px-4 font-sans text-gray-900 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8 text-center space-y-6 animate-fade-in">
+          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <CalendarX size={32} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-zinc-900">Agendamentos Online Indisponíveis</h1>
+            <p className="text-zinc-500 text-sm">
+              Os agendamentos online estão temporariamente desativados pelo administrador.
+            </p>
+          </div>
+          <p className="text-sm text-zinc-600">
+            Mas não se preocupe! Você ainda pode marcar o seu horário entrando em contato direto conosco pelo nosso WhatsApp.
+          </p>
+          {ownerWhatsApp && (
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full bg-green-600 text-white py-3.5 rounded-2xl font-medium hover:bg-green-700 transition-colors shadow-lg shadow-green-100 active:scale-95 text-center"
+            >
+              Falar no WhatsApp
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4 font-sans text-gray-900">

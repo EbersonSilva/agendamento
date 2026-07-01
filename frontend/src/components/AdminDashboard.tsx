@@ -1,4 +1,4 @@
-import { Calendar, Settings, Menu, X, Clock, LogOut, KeyRound, List, BarChart2, PlusCircle, Users } from 'lucide-react';
+import { Calendar, Settings, Menu, X, Clock, LogOut, KeyRound, List, BarChart2, PlusCircle, Users, Share2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../service/api';
@@ -6,6 +6,7 @@ import { api } from '../service/api';
 export function AdminDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Começa fechado no mobile
   const [pendingCount, setPendingCount] = useState(0);
+  const [copiedLink, setCopiedLink] = useState(false);
   const navigate = useNavigate();
   const location = useLocation(); // Para saber qual link está ativo
 
@@ -25,6 +26,18 @@ export function AdminDashboard() {
     localStorage.removeItem('@Estudio:user');
     delete api.defaults.headers.Authorization;
     navigate('/login');
+  };
+
+  const handleCopyLink = () => {
+    const clientLink = window.location.origin;
+    navigator.clipboard.writeText(clientLink)
+      .then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2500);
+      })
+      .catch((err) => {
+        console.error('Erro ao copiar link:', err);
+      });
   };
 
   // Buscar quantidade de pendentes
@@ -98,16 +111,28 @@ export function AdminDashboard() {
             );
           })}
         </nav>
-           {/* Botão de Logout sempre visível no rodapé do menu */}
-        <div className="mt-6 px-4">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 p-3 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
-          >
-            <LogOut size={20} />
-            <span className="font-medium">Sair</span>
-          </button>
-        </div>
+         {/* Botão de Compartilhar e Logout no rodapé do menu */}
+         <div className="mt-6 px-4 pb-6 border-t border-zinc-800 pt-6 space-y-2">
+           <button
+             onClick={handleCopyLink}
+             className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all text-sm font-medium ${
+               copiedLink
+                 ? 'bg-green-600 text-white shadow-lg'
+                 : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+             }`}
+           >
+             <Share2 size={20} />
+             <span>{copiedLink ? 'Link Copiado!' : 'Copiar Link de Agendamento'}</span>
+           </button>
+
+           <button
+             onClick={handleLogout}
+             className="w-full flex items-center gap-3 p-3 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors text-sm font-medium"
+           >
+             <LogOut size={20} />
+             <span>Sair</span>
+           </button>
+         </div>
       </aside>
 
       {/* Main Content */}
