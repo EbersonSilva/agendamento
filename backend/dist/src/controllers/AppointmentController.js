@@ -316,30 +316,27 @@ export const AppointmentController = {
                     status: 'pending'
                 },
             });
-            // 7. ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (silencioso — falha não bloqueia resposta)
-            try {
-                const cfg = await prisma.studioConfig.findFirst();
+            // 7. ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (em segundo plano — não bloqueia a resposta)
+            prisma.studioConfig.findFirst()
+                .then((cfg) => {
                 if (cfg?.ownerEmail) {
-                    await sendAppointmentNotification({
+                    sendAppointmentNotification({
                         ownerEmail: cfg.ownerEmail,
                         clientName,
                         clientPhone: normalizedPhone,
                         serviceName: service.name,
                         startTime: start,
                         isManual: false,
+                    }).catch((emailErr) => {
+                        console.error('Aviso: falha ao enviar email de notificação:', emailErr);
                     });
                 }
-            }
-            catch (emailErr) {
-                console.error('Aviso: falha ao enviar email de notificação:', emailErr);
-            }
-            // Sincronização com o Google Calendar
-            try {
-                await upsertCalendarEvent(appointment.id);
-            }
-            catch (calError) {
+            })
+                .catch((err) => console.error('Erro ao buscar config para e-mail:', err));
+            // Sincronização com o Google Calendar (em segundo plano — não bloqueia a resposta)
+            upsertCalendarEvent(appointment.id).catch((calError) => {
                 console.error("Erro ao sincronizar com Google Calendar:", calError);
-            }
+            });
             return res.status(201).json(appointment);
         }
         catch (error) {
@@ -417,30 +414,27 @@ export const AppointmentController = {
                 },
                 include: { client: true, service: true }
             });
-            // ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (silencioso)
-            try {
-                const cfg = await prisma.studioConfig.findFirst();
+            // ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (em segundo plano)
+            prisma.studioConfig.findFirst()
+                .then((cfg) => {
                 if (cfg?.ownerEmail) {
-                    await sendAppointmentNotification({
+                    sendAppointmentNotification({
                         ownerEmail: cfg.ownerEmail,
                         clientName,
                         clientPhone: normalizedPhone,
                         serviceName: service.name,
                         startTime: start,
                         isManual: true,
+                    }).catch((emailErr) => {
+                        console.error('Aviso: falha ao enviar email de notificação:', emailErr);
                     });
                 }
-            }
-            catch (emailErr) {
-                console.error('Aviso: falha ao enviar email de notificação:', emailErr);
-            }
-            // Sincronização com o Google Calendar
-            try {
-                await upsertCalendarEvent(appointment.id);
-            }
-            catch (calError) {
+            })
+                .catch((err) => console.error('Erro ao buscar config para e-mail:', err));
+            // Sincronização com o Google Calendar (em segundo plano)
+            upsertCalendarEvent(appointment.id).catch((calError) => {
                 console.error("Erro ao sincronizar com Google Calendar:", calError);
-            }
+            });
             return res.status(201).json(appointment);
         }
         catch (error) {
@@ -457,23 +451,23 @@ export const AppointmentController = {
                 where: { id: Number(id) },
                 data: { status: newStatus }
             });
-            // Sincronização com o Google Calendar
-            try {
-                if (newStatus === "canceled" || newStatus === "rejected") {
-                    if (updated.googleEventId) {
-                        await deleteCalendarEvent(updated.googleEventId);
-                        await prisma.appointment.update({
+            // Sincronização com o Google Calendar (em segundo plano)
+            if (newStatus === "canceled" || newStatus === "rejected") {
+                if (updated.googleEventId) {
+                    deleteCalendarEvent(updated.googleEventId)
+                        .then(() => {
+                        prisma.appointment.update({
                             where: { id: updated.id },
                             data: { googleEventId: null }
-                        });
-                    }
-                }
-                else {
-                    await upsertCalendarEvent(updated.id);
+                        }).catch((err) => console.error("Erro ao limpar googleEventId no banco:", err));
+                    })
+                        .catch((calError) => console.error("Erro ao deletar evento no Google Calendar:", calError));
                 }
             }
-            catch (calError) {
-                console.error("Erro ao sincronizar com Google Calendar:", calError);
+            else {
+                upsertCalendarEvent(updated.id).catch((calError) => {
+                    console.error("Erro ao sincronizar com Google Calendar:", calError);
+                });
             }
             // Se o status for "confirmed", aqui você dispararia a lógica do WhatsApp
             return res.json(updated);
@@ -496,18 +490,16 @@ export const AppointmentController = {
                 where: { id: Number(id) },
                 data: { status: "canceled" }
             });
-            // Sincronização com o Google Calendar
-            try {
-                if (updated.googleEventId) {
-                    await deleteCalendarEvent(updated.googleEventId);
-                    await prisma.appointment.update({
+            // Sincronização com o Google Calendar (em segundo plano)
+            if (updated.googleEventId) {
+                deleteCalendarEvent(updated.googleEventId)
+                    .then(() => {
+                    prisma.appointment.update({
                         where: { id: updated.id },
                         data: { googleEventId: null }
-                    });
-                }
-            }
-            catch (calError) {
-                console.error("Erro ao sincronizar com Google Calendar:", calError);
+                    }).catch((err) => console.error("Erro ao limpar googleEventId no banco:", err));
+                })
+                    .catch((calError) => console.error("Erro ao deletar evento no Google Calendar:", calError));
             }
             return res.status(200).json({ message: "Agendamento cancelado com sucesso!" });
         }
