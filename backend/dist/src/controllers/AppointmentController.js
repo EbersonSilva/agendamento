@@ -296,15 +296,32 @@ export const AppointmentController = {
                     error: "Este horário já está ocupado. Por favor, escolha outro."
                 });
             }
-            // 5. TRATAMENTO DO CLIENTE - Sempre cria um novo cliente
-            const client = await prisma.user.create({
-                data: {
-                    name: clientName,
+            // 5. TRATAMENTO DO CLIENTE - Busca cliente existente pelo telefone ou cria um novo
+            let client = await prisma.user.findFirst({
+                where: {
                     phone: normalizedPhone,
-                    passwordHash: "",
                     isAdmin: false
                 }
             });
+            if (client) {
+                // Atualiza o nome do cliente se o nome digitado for diferente/mais completo
+                if (client.name !== clientName) {
+                    client = await prisma.user.update({
+                        where: { id: client.id },
+                        data: { name: clientName }
+                    });
+                }
+            }
+            else {
+                client = await prisma.user.create({
+                    data: {
+                        name: clientName,
+                        phone: normalizedPhone,
+                        passwordHash: "",
+                        isAdmin: false
+                    }
+                });
+            }
             // 6. CRIAÇÃO DO AGENDAMENTO VINCULADO AO CLIENTE
             const appointment = await prisma.appointment.create({
                 data: {
@@ -374,15 +391,32 @@ export const AppointmentController = {
                     });
                 }
             }
-            // Cria o cliente
-            const client = await prisma.user.create({
-                data: {
-                    name: clientName,
+            // Busca cliente existente pelo telefone ou cria um novo
+            let client = await prisma.user.findFirst({
+                where: {
                     phone: normalizedPhone,
-                    passwordHash: "",
                     isAdmin: false
                 }
             });
+            if (client) {
+                // Atualiza o nome do cliente se o nome digitado for diferente/mais completo
+                if (client.name !== clientName) {
+                    client = await prisma.user.update({
+                        where: { id: client.id },
+                        data: { name: clientName }
+                    });
+                }
+            }
+            else {
+                client = await prisma.user.create({
+                    data: {
+                        name: clientName,
+                        phone: normalizedPhone,
+                        passwordHash: "",
+                        isAdmin: false
+                    }
+                });
+            }
             // Cria o agendamento como manual e já confirmado
             const appointment = await prisma.appointment.create({
                 data: {
