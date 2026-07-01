@@ -16,20 +16,26 @@ async function main() {
     process.exit(1);
   }
 
+  const passwordHash = bcrypt.hashSync(adminPassword, 10);
+
   const existingAdmin = await prisma.user.findFirst({
     where: {
       isAdmin: true,
-      name: adminName,
       phone: adminPhone,
     },
   });
 
   if (existingAdmin) {
-    console.log("Admin user already exists. Skipping seed.");
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: {
+        name: adminName,
+        passwordHash,
+      },
+    });
+    console.log("Admin password updated successfully.");
     return;
   }
-
-  const passwordHash = bcrypt.hashSync(adminPassword, 10);
 
   await prisma.user.create({
     data: {
