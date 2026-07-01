@@ -362,13 +362,7 @@ export const AppointmentController = {
       });
 
       if (client) {
-        // Atualiza o nome do cliente se o nome digitado for diferente/mais completo
-        if (client.name !== clientName) {
-          client = await prisma.user.update({
-            where: { id: client.id },
-            data: { name: clientName }
-          });
-        }
+        // Se o cliente já existe, mantemos o cadastro atual (preserva o nome editado pela dona)
       } else {
         client = await prisma.user.create({
           data: {
@@ -468,13 +462,7 @@ export const AppointmentController = {
       });
 
       if (client) {
-        // Atualiza o nome do cliente se o nome digitado for diferente/mais completo
-        if (client.name !== clientName) {
-          client = await prisma.user.update({
-            where: { id: client.id },
-            data: { name: clientName }
-          });
-        }
+        // Se o cliente já existe, mantemos o cadastro atual (preserva o nome editado pela dona)
       } else {
         client = await prisma.user.create({
           data: {
