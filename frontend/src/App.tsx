@@ -7,6 +7,7 @@ import { PendingAppointments } from "./components/PendingAppointments"
 import { AdminDashboard } from "./components/AdminDashboard"
 import { Settings} from "./components/Settings"
 import { ChangePassword } from "./components/ChangePassword"
+import { Clients } from "./components/Clients"
 import { PrivateRoute } from "./components/PrivateRoute"
 import { Login } from "./components/Login"
 
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="agendamentos" element={<AllAppointments />} />
           <Route path="metricas" element={<Metrics />} />
           <Route path="pendentes" element={<PendingAppointments />} />
+          <Route path="clientes" element={<Clients />} />
           <Route path="configuracoes" element={<Settings/>} />
           <Route path="alterar-senha" element={<ChangePassword />} />
         </Route>

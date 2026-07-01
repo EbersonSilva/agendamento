@@ -1,4 +1,4 @@
-import { Calendar, Settings, Menu, X, Clock, LogOut, KeyRound, List, BarChart2, PlusCircle } from 'lucide-react';
+import { Calendar, Settings, Menu, X, Clock, LogOut, KeyRound, List, BarChart2, PlusCircle, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../service/api';
@@ -15,7 +15,7 @@ export function AdminDashboard() {
     { label: 'Todos Agendamentos', path: '/admin/agendamentos', icon: <List size={20} /> },
     { label: 'Pendentes', path: '/admin/pendentes', icon: <Clock size={20} /> },
     { label: 'Métricas', path: '/admin/metricas', icon: <BarChart2 size={20} /> },
-    // { label: 'Clientes', path: '/admin/clientes', icon: <Users size={20} /> },
+    { label: 'Clientes', path: '/admin/clientes', icon: <Users size={20} /> },
     { label: 'Configurações', path: '/admin/configuracoes', icon: <Settings size={20} /> },
     { label: 'Alterar Senha', path: '/admin/alterar-senha', icon: <KeyRound size={20} /> },
   ];

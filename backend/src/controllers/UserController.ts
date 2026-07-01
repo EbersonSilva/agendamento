@@ -5,11 +5,14 @@ import bcrypt from 'bcryptjs';
 export const UserController ={
     async index (req: Request, res: Response) {
         try {
-            const users = await prisma.user.findMany();
+            const users = await prisma.user.findMany({
+                where: { isAdmin: false },
+                orderBy: { name: 'asc' }
+            });
             return res.status(200).json(users);
         } catch (error) {
             console.error(error);
-            return res.status(500).json({ error: "Erro ao buscar usuários" });
+            return res.status(500).json({ error: "Erro ao buscar clientes" });
         }
     },
     async createAdmin(req: Request, res: Response) {
@@ -100,6 +103,26 @@ export const UserController ={
         } catch (error) {
             console.error(error);
             return res.status(500).json({ error: "Erro ao alterar senha" });
+        }
+    },
+
+    async updateClientName(req: Request, res: Response) {
+        const { id } = req.params;
+        const { name } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: "Nome é obrigatório." });
+        }
+
+        try {
+            const updated = await prisma.user.update({
+                where: { id: Number(id), isAdmin: false },
+                data: { name }
+            });
+            return res.json(updated);
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ error: "Erro ao atualizar nome do cliente." });
         }
     }
 

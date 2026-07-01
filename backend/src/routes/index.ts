@@ -34,6 +34,7 @@ router.patch('/services/:id/activate', verifyToken, verifyAdmin, ServiceControll
 router.post('/users/admin', verifyToken, verifyAdmin, UserController.createAdmin); // Cria usuário admin (protegido)
 router.get('/users', verifyToken, verifyAdmin, UserController.index); // Lista usuários (protegido)
 router.put('/users/change-password', verifyToken, UserController.changePassword); // Trocar senha (protegido)
+router.put('/users/:id', verifyToken, verifyAdmin, UserController.updateClientName); // Atualiza nome do cliente (protegido)
 
 // ROTAS DE CONFIGURAÇÃO
 router.get('/config', ConfigController.get);// Obtém as configurações atuais
