@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { addMinutes } from "date-fns";
-import { sendAppointmentNotification } from "../lib/mailer.js";
 import { upsertCalendarEvent, deleteCalendarEvent } from "../lib/googleCalendar.js";
 
 function hasClosedRangeConflict(
@@ -375,24 +374,6 @@ export const AppointmentController = {
         },
       });
 
-      // 7. ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (em segundo plano — não bloqueia a resposta)
-      prisma.studioConfig.findFirst()
-        .then((cfg) => {
-          if (cfg?.ownerEmail) {
-            sendAppointmentNotification({
-              ownerEmail: cfg.ownerEmail,
-              clientName,
-              clientPhone: normalizedPhone,
-              serviceName: service.name,
-              startTime: start,
-              isManual: false,
-            }).catch((emailErr) => {
-              console.error('Aviso: falha ao enviar email de notificação:', emailErr);
-            });
-          }
-        })
-        .catch((err) => console.error('Erro ao buscar config para e-mail:', err));
-
       // Sincronização com o Google Calendar (em segundo plano — não bloqueia a resposta)
       upsertCalendarEvent(appointment.id).catch((calError) => {
         console.error("Erro ao sincronizar com Google Calendar:", calError);
@@ -484,24 +465,6 @@ export const AppointmentController = {
         },
         include: { client: true, service: true }
       });
-
-      // ENVIA EMAIL DE NOTIFICAÇÃO PARA A DONA (em segundo plano)
-      prisma.studioConfig.findFirst()
-        .then((cfg) => {
-          if (cfg?.ownerEmail) {
-            sendAppointmentNotification({
-              ownerEmail: cfg.ownerEmail,
-              clientName,
-              clientPhone: normalizedPhone,
-              serviceName: service.name,
-              startTime: start,
-              isManual: true,
-            }).catch((emailErr) => {
-              console.error('Aviso: falha ao enviar email de notificação:', emailErr);
-            });
-          }
-        })
-        .catch((err) => console.error('Erro ao buscar config para e-mail:', err));
 
       // Sincronização com o Google Calendar (em segundo plano)
       upsertCalendarEvent(appointment.id).catch((calError) => {
