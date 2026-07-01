@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { api } from '../service/api';
-import { Plus, DollarSign, Clock, ToggleRight, ToggleLeft, Wrench, CalendarClock, CalendarX, Pencil } from 'lucide-react';
+import { Plus, DollarSign, Clock, ToggleRight, ToggleLeft, Wrench, CalendarClock, CalendarX, Pencil, Calendar } from 'lucide-react';
 import { ServiceModal } from '../components/ServiceModal';
 import { ConfirmModal } from './ConfirmModal';
 import { StudioHours } from './StudioHours';
 import { ClosedDates } from './ClosedDates';
+import { GoogleSettings } from './GoogleSettings';
 
 interface Service {
   id: number;
@@ -42,7 +43,7 @@ function writeServicesCache(data: Service[]) {
   localStorage.setItem(SERVICES_CACHE_KEY, JSON.stringify(payload));
 }
 
-type Tab = 'services' | 'hours' | 'closed';
+type Tab = 'services' | 'hours' | 'closed' | 'integrations';
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>('services');
@@ -57,7 +58,8 @@ export function Settings() {
   const tabs = [
     { id: 'services' as Tab, label: 'Serviços', icon: <Wrench size={18} /> },
     { id: 'hours' as Tab, label: 'Horários', icon: <CalendarClock size={18} /> },
-    { id: 'closed' as Tab, label: 'Fechamentos', icon: <CalendarX size={18} /> }
+    { id: 'closed' as Tab, label: 'Fechamentos', icon: <CalendarX size={18} /> },
+    { id: 'integrations' as Tab, label: 'Integrações', icon: <Calendar size={18} /> }
   ];
 
   function openDeleteConfirm(id: number) {
@@ -237,6 +239,7 @@ export function Settings() {
 
         {activeTab === 'hours' && <StudioHours />}
         {activeTab === 'closed' && <ClosedDates />}
+        {activeTab === 'integrations' && <GoogleSettings />}
       </div>
 
       {/* Modais */}

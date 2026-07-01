@@ -33,6 +33,7 @@ model Appointment {
   status       String   @default("pending") // pending, confirmed, canceled
   isManualSlot Boolean  @default(false)     // true quando criado pela dona manualmente
   notes        String?                      // Observação opcional do agendamento manual
+  googleEventId String?                     // ID do evento criado no Google Calendar
 
   clientId  Int
   serviceId Int
@@ -60,3 +61,13 @@ model ClosedDate {
   startTimeMinutes Int?     // Minutos desde meia-noite (ex: 8h = 480)
   endTimeMinutes   Int?     // Minutos desde meia-noite (ex: 18h = 1080)
 }
+
+model GoogleConfig {
+  id           Int      @id @default(autoincrement())
+  accessToken  String
+  refreshToken String
+  expiryDate   DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

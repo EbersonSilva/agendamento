@@ -6,6 +6,7 @@ import { ConfigController } from "../controllers/ConfigController.js";
 import { ClosedDateController } from "../controllers/ClosedDateController.js";
 import { MetricsController } from "../controllers/MetricsController.js";
 import { AuthController } from "../controllers/AuthController.js";
+import { GoogleAuthController } from "../controllers/GoogleAuthController.js";
 import { verifyToken, verifyAdmin } from "../middleware/auth.js";
 
 export const router = Router();
@@ -37,6 +38,13 @@ router.put('/users/change-password', verifyToken, UserController.changePassword)
 // ROTAS DE CONFIGURAÇÃO
 router.get('/config', ConfigController.get);// Obtém as configurações atuais
 router.put('/config', verifyToken, verifyAdmin, ConfigController.update);// Atualiza as configurações atuais (protegido)
+
+// ROTAS DE INTEGRAÇÃO GOOGLE CALENDAR
+router.get('/auth/google', verifyToken, verifyAdmin, GoogleAuthController.redirectUrl);
+router.get('/auth/google/callback', GoogleAuthController.callback);
+router.get('/auth/google/status', verifyToken, verifyAdmin, GoogleAuthController.status);
+router.post('/auth/google/disconnect', verifyToken, verifyAdmin, GoogleAuthController.disconnect);
+
 
 // ROTAS DE FECHAMENTOS EXCEPCIONAIS
 router.get('/closed-dates', ClosedDateController.index); // Lista datas de fechamento

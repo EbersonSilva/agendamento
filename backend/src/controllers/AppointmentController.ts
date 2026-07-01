@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { addMinutes } from "date-fns";
 import { sendAppointmentNotification } from "../lib/mailer.js";
+import { upsertCalendarEvent, deleteCalendarEvent } from "../lib/googleCalendar.js";
 
 function hasClosedRangeConflict(
   startMinutes: number,
@@ -391,6 +392,13 @@ export const AppointmentController = {
         console.error('Aviso: falha ao enviar email de notificação:', emailErr);
       }
 
+      // Sincronização com o Google Calendar
+      try {
+        await upsertCalendarEvent(appointment.id);
+      } catch (calError) {
+        console.error("Erro ao sincronizar com Google Calendar:", calError);
+      }
+
       return res.status(201).json(appointment);
 
     } catch (error) {
@@ -495,6 +503,13 @@ export const AppointmentController = {
         console.error('Aviso: falha ao enviar email de notificação:', emailErr);
       }
 
+      // Sincronização com o Google Calendar
+      try {
+        await upsertCalendarEvent(appointment.id);
+      } catch (calError) {
+        console.error("Erro ao sincronizar com Google Calendar:", calError);
+      }
+
       return res.status(201).json(appointment);
     } catch (error) {
       console.error(error);
@@ -512,6 +527,23 @@ export const AppointmentController = {
         where: { id: Number(id) },
         data: { status: newStatus }
       });
+
+      // Sincronização com o Google Calendar
+      try {
+        if (newStatus === "canceled" || newStatus === "rejected") {
+          if (updated.googleEventId) {
+            await deleteCalendarEvent(updated.googleEventId);
+            await prisma.appointment.update({
+              where: { id: updated.id },
+              data: { googleEventId: null }
+            });
+          }
+        } else {
+          await upsertCalendarEvent(updated.id);
+        }
+      } catch (calError) {
+        console.error("Erro ao sincronizar com Google Calendar:", calError);
+      }
 
       // Se o status for "confirmed", aqui você dispararia a lógica do WhatsApp
       return res.json(updated);
@@ -532,10 +564,23 @@ export const AppointmentController = {
         return res.status(404).json({ error: "Agendamento não encontrado" });
       }
 
-      await prisma.appointment.update({
+      const updated = await prisma.appointment.update({
         where: { id: Number(id) },
         data: { status: "canceled" }
       });
+
+      // Sincronização com o Google Calendar
+      try {
+        if (updated.googleEventId) {
+          await deleteCalendarEvent(updated.googleEventId);
+          await prisma.appointment.update({
+            where: { id: updated.id },
+            data: { googleEventId: null }
+          });
+        }
+      } catch (calError) {
+        console.error("Erro ao sincronizar com Google Calendar:", calError);
+      }
 
       return res.status(200).json({ message: "Agendamento cancelado com sucesso!" });
     } catch (error) {
