@@ -130,21 +130,21 @@ export function Settings() {
       </header>
 
       {/* Abas */}
-      <div className="flex gap-2 border-b border-zinc-200 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+      <div className="grid grid-cols-2 gap-2 border-b border-zinc-200 pb-3 sm:pb-0 sm:flex sm:gap-2 sm:mx-0 sm:px-0">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors relative whitespace-nowrap shrink-0 ${
+            className={`flex items-center justify-center sm:justify-start gap-2 px-3 py-2.5 sm:px-4 sm:py-3 font-medium transition-all rounded-xl sm:rounded-none sm:relative whitespace-nowrap ${
               activeTab === tab.id
-                ? 'text-zinc-900'
-                : 'text-zinc-500 hover:text-zinc-700'
+                ? 'bg-zinc-900 text-white sm:bg-transparent sm:text-zinc-900'
+                : 'bg-zinc-100 text-zinc-600 sm:bg-transparent sm:text-zinc-500 sm:hover:text-zinc-700'
             }`}
           >
             {tab.icon}
-            <span className="text-sm md:text-base">{tab.label}</span>
+            <span className="text-xs sm:text-sm md:text-base">{tab.label}</span>
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900" />
+              <div className="hidden sm:block absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900" />
             )}
           </button>
         ))}
@@ -172,9 +172,10 @@ export function Settings() {
                   setEditingService(null);
                   setIsModalOpen(true);
                 }}
-                className="bg-zinc-900 text-white p-3 rounded-full shadow-lg hover:bg-zinc-800 transition-colors shrink-0 w-full sm:w-auto"
+                className="bg-zinc-900 text-white p-3 rounded-xl shadow-lg hover:bg-zinc-800 transition-colors shrink-0 w-full sm:w-auto flex items-center justify-center gap-2"
               >
-                <Plus size={24} />
+                <Plus size={20} />
+                <span className="sm:hidden text-sm font-semibold">Adicionar Serviço</span>
               </button>
             </div>
 

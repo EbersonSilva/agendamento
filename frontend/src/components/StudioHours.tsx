@@ -23,12 +23,10 @@ export function StudioHours() {
   });
   const [loading, setLoading] = useState(true);
   const [savingHours, setSavingHours] = useState(false);
-  const [savingWhatsApp, setSavingWhatsApp] = useState(false);
-  const [savingEmail, setSavingEmail] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
   const [savingPublicBookings, setSavingPublicBookings] = useState(false);
   const [hoursMessage, setHoursMessage] = useState('');
-  const [whatsAppMessage, setWhatsAppMessage] = useState('');
-  const [emailMessage, setEmailMessage] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
   const [bookingToggleMessage, setBookingToggleMessage] = useState('');
 
   const daysOfWeek = [
@@ -119,55 +117,42 @@ export function StudioHours() {
     }
   }
 
-  async function handleSaveWhatsApp() {
+  async function handleSaveContact() {
     const normalizedOwnerWhatsApp = config.ownerWhatsApp.replace(/\D/g, '');
     if (!normalizedOwnerWhatsApp) {
-      setWhatsAppMessage('Informe o WhatsApp para receber os agendamentos');
-      setTimeout(() => setWhatsAppMessage(''), 3000);
+      setContactMessage('Informe o WhatsApp para receber os agendamentos');
+      setTimeout(() => setContactMessage(''), 3000);
       return;
     }
     if (normalizedOwnerWhatsApp.length !== 10 && normalizedOwnerWhatsApp.length !== 11) {
-      setWhatsAppMessage('Informe DDD + número (10 ou 11 dígitos)');
-      setTimeout(() => setWhatsAppMessage(''), 3000);
+      setContactMessage('Informe DDD + número (10 ou 11 dígitos)');
+      setTimeout(() => setContactMessage(''), 3000);
       return;
     }
 
-    setSavingWhatsApp(true);
-    try {
-      await api.put('/config', { ownerWhatsApp: normalizedOwnerWhatsApp });
-      setWhatsAppMessage('WhatsApp salvo com sucesso!');
-      setTimeout(() => setWhatsAppMessage(''), 3000);
-    } catch (error) {
-      const axiosError = error as AxiosError<{ error?: string; message?: string }>;
-      const serverMessage = axiosError.response?.data?.error || axiosError.response?.data?.message;
-      console.error('Erro ao salvar:', error);
-      setWhatsAppMessage(serverMessage || 'Erro ao salvar configurações');
-      setTimeout(() => setWhatsAppMessage(''), 3000);
-    } finally {
-      setSavingWhatsApp(false);
-    }
-  }
-
-  async function handleSaveEmail() {
     const email = config.ownerEmail.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailMessage('Informe um email válido.');
-      setTimeout(() => setEmailMessage(''), 3000);
+      setContactMessage('Informe um email válido.');
+      setTimeout(() => setContactMessage(''), 3000);
       return;
     }
-    setSavingEmail(true);
+
+    setSavingContact(true);
     try {
-      await api.put('/config', { ownerEmail: email });
-      setEmailMessage('Email salvo com sucesso!');
-      setTimeout(() => setEmailMessage(''), 3000);
+      await api.put('/config', { 
+        ownerWhatsApp: normalizedOwnerWhatsApp,
+        ownerEmail: email 
+      });
+      setContactMessage('Contatos salvos com sucesso!');
+      setTimeout(() => setContactMessage(''), 3000);
     } catch (error) {
       const axiosError = error as AxiosError<{ error?: string; message?: string }>;
       const serverMessage = axiosError.response?.data?.error || axiosError.response?.data?.message;
-      console.error('Erro ao salvar:', error);
-      setEmailMessage(serverMessage || 'Erro ao salvar email');
-      setTimeout(() => setEmailMessage(''), 3000);
+      console.error('Erro ao salvar contato:', error);
+      setContactMessage(serverMessage || 'Erro ao salvar contatos');
+      setTimeout(() => setContactMessage(''), 3000);
     } finally {
-      setSavingEmail(false);
+      setSavingContact(false);
     }
   }
 
@@ -198,46 +183,85 @@ export function StudioHours() {
         <p className="text-sm text-zinc-500">Configure os horários e dias que o estúdio funciona</p>
       </div>
 
-      {/* Horários */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-zinc-100 space-y-4">
-        <div className="flex items-center gap-2 text-zinc-700 font-medium mb-4">
-          <Clock size={20} />
-          <span>Horário de Atendimento</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-2">
-              Abertura
-            </label>
-            <select
-              value={config.openingTime}
-              onChange={(e) => setConfig({ ...config, openingTime: Number(e.target.value) })}
-              className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
-            >
-              {hours.map(hour => (
-                <option key={hour} value={hour}>
-                  {String(hour).padStart(2, '0')}:00
-                </option>
-              ))}
-            </select>
+      {/* Horários e Dias de Atendimento */}
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-zinc-100 space-y-6">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-zinc-700 font-medium">
+            <Clock size={20} />
+            <span>Horário de Atendimento</span>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-2">
-              Fechamento
-            </label>
-            <select
-              value={config.closingTime}
-              onChange={(e) => setConfig({ ...config, closingTime: Number(e.target.value) })}
-              className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
-            >
-              {hours.map(hour => (
-                <option key={hour} value={hour}>
-                  {String(hour).padStart(2, '0')}:00
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-2">
+                Abertura
+              </label>
+              <select
+                value={config.openingTime}
+                onChange={(e) => setConfig({ ...config, openingTime: Number(e.target.value) })}
+                className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+              >
+                {hours.map(hour => (
+                  <option key={hour} value={hour}>
+                    {String(hour).padStart(2, '0')}:00
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-2">
+                Fechamento
+              </label>
+              <select
+                value={config.closingTime}
+                onChange={(e) => setConfig({ ...config, closingTime: Number(e.target.value) })}
+                className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+              >
+                {hours.map(hour => (
+                  <option key={hour} value={hour}>
+                    {String(hour).padStart(2, '0')}:00
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-zinc-100" />
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-zinc-700 font-medium">
+            <Calendar size={20} />
+            <span>Dias de Funcionamento</span>
+          </div>
+
+          <p className="text-sm text-zinc-500">
+            Selecione os dias em que o estúdio <strong>fica fechado</strong>
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+            {daysOfWeek.map(day => {
+              const isClosed = config.closedDays.includes(day.value);
+              return (
+                <button
+                  key={day.value}
+                  onClick={() => toggleDay(day.value)}
+                  className={`p-2.5 sm:p-4 rounded-xl border-2 transition-all font-medium ${
+                    isClosed
+                      ? 'border-red-300 bg-red-50 text-red-700'
+                      : 'border-green-300 bg-green-50 text-green-700'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="font-bold text-xs sm:text-sm md:text-base">{day.label}</div>
+                    <div className="text-[10px] sm:text-xs mt-1">
+                      {isClosed ? 'Fechado' : 'Aberto'}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -257,44 +281,8 @@ export function StudioHours() {
           className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Save size={20} />
-          {savingHours ? 'Salvando...' : 'Salvar Horários'}
+          {savingHours ? 'Salvando...' : 'Salvar Horários e Dias'}
         </button>
-      </div>
-
-      {/* Dias da Semana */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-zinc-100 space-y-4">
-        <div className="flex items-center gap-2 text-zinc-700 font-medium mb-4">
-          <Calendar size={20} />
-          <span>Dias de Funcionamento</span>
-        </div>
-
-        <p className="text-sm text-zinc-500 mb-4">
-          Selecione os dias em que o estúdio <strong>fica fechado</strong>
-        </p>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {daysOfWeek.map(day => {
-            const isClosed = config.closedDays.includes(day.value);
-            return (
-              <button
-                key={day.value}
-                onClick={() => toggleDay(day.value)}
-                className={`p-3 sm:p-4 rounded-xl border-2 transition-all font-medium ${
-                  isClosed
-                    ? 'border-red-300 bg-red-50 text-red-700'
-                    : 'border-green-300 bg-green-50 text-green-700'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="font-bold text-sm sm:text-base">{day.label}</div>
-                  <div className="text-xs mt-1">
-                    {isClosed ? 'Fechado' : 'Aberto'}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Configuração de Agendamentos Online */}
@@ -362,47 +350,25 @@ export function StudioHours() {
             Você receberá um email a cada novo agendamento realizado.
           </p>
         </div>
-      </div>
 
-      {/* Botões Salvar */}
-      <div className="flex flex-col gap-3">
-        {whatsAppMessage && (
+        {contactMessage && (
           <div className={`text-center text-sm py-2 px-4 rounded-xl ${
-            whatsAppMessage.includes('sucesso')
+            contactMessage.includes('sucesso')
               ? 'bg-green-50 text-green-700'
               : 'bg-red-50 text-red-700'
           }`}>
-            {whatsAppMessage}
+            {contactMessage}
           </div>
         )}
+
         <button
-          onClick={handleSaveWhatsApp}
-          disabled={savingWhatsApp}
-          className="w-full bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          onClick={handleSaveContact}
+          disabled={savingContact}
+          className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
         >
           <Save size={20} />
-          {savingWhatsApp ? 'Salvando...' : 'Salvar WhatsApp'}
+          {savingContact ? 'Salvando...' : 'Salvar Contatos'}
         </button>
-
-        {emailMessage && (
-          <div className={`text-center text-sm py-2 px-4 rounded-xl ${
-            emailMessage.includes('sucesso')
-              ? 'bg-green-50 text-green-700'
-              : 'bg-red-50 text-red-700'
-          }`}>
-            {emailMessage}
-          </div>
-        )}
-        <button
-          onClick={handleSaveEmail}
-          disabled={savingEmail}
-          className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          <Mail size={20} />
-          {savingEmail ? 'Salvando...' : 'Salvar Email'}
-        </button>
-
-        
       </div>
     </div>
   );

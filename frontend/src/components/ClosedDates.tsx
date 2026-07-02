@@ -135,9 +135,10 @@ export function ClosedDates() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-zinc-900 text-white p-3 rounded-full shadow-lg hover:bg-zinc-800 transition-colors shrink-0 w-full sm:w-auto"
+          className="bg-zinc-900 text-white p-3 rounded-xl shadow-lg hover:bg-zinc-800 transition-colors shrink-0 w-full sm:w-auto flex items-center justify-center gap-2"
         >
           <Plus size={20} />
+          <span className="sm:hidden text-sm font-semibold">Adicionar Fechamento</span>
         </button>
       </div>
 
