@@ -30,6 +30,9 @@ Sistema Full Stack desenvolvido para gestão de agendamentos em estúdios de bel
 - [x] **Autenticação JWT**: Login seguro com tokens
 - [x] **Agendas de Fechamento**: Datas com atendimento indisponível
 - [x] **Relatórios e Métricas**: Acompanhamento de agendamentos
+- [x] **Notificações por E-mail**: Alerta de novo agendamento para a proprietária (Gmail/SMTP)
+- [x] **Google Calendar**: Sincronização automatizada e inteligente de agendamentos em tempo real
+- [x] **WhatsApp Link**: Direcionamento com mensagem pré-montada para confirmação rápida da cliente
 
 ## 📁 Estrutura do Projeto
 
@@ -135,12 +138,39 @@ npm run dev
 
 Para mais informações sobre a configuração de autenticação JWT, consulte [JWT_SETUP.md](./backend/JWT_SETUP.md).
 
+## 📧 Notificações por E-mail (SMTP / Gmail)
+
+O sistema possui um fluxo integrado para notificar a administradora (Melissa) por e-mail a cada novo agendamento (seja realizado pela cliente no site ou manualmente no painel).
+
+### Como Configurar:
+1. **Ativar no Painel**: Acesse o painel admin em **Configurações > Horários** (seção "Contato da Dona") e preencha o campo **"Email para receber notificações de agendamento"**.
+2. **Variáveis do .env**: Configure os dados de SMTP no arquivo `.env` do backend (recomenda-se usar uma **Senha de App** do Gmail):
+   ```env
+   SMTP_HOST="smtp.gmail.com"
+   SMTP_PORT="587"
+   SMTP_SECURE="false"
+   SMTP_USER="seu-email-da-melissa@gmail.com"
+   SMTP_PASS="xxxx xxxx xxxx xxxx" # Senha de app gerada nas configurações do Google
+   ```
+
+## 📅 Sincronização com Google Calendar
+
+Os agendamentos criados no sistema são sincronizados automaticamente com o Google Calendar da administradora.
+- Eventos pendentes de aprovação recebem o prefixo `[PENDENTE]`.
+- Quando confirmados no painel, o título é atualizado e o prefixo é removido.
+- Se cancelados, o evento correspondente é removido da agenda Google.
+- A sincronização roda em segundo plano sem travar a resposta da cliente.
+
 ## 📊 Scripts Disponíveis
 
 ### Backend
 - `npm run dev`: Inicia o servidor em modo desenvolvimento
-- `npx prisma migrate dev`: Cria e aplica migrações
-- `npx prisma studio`: Interface gráfica do Prisma
+- `npm run build`: Compila o código TypeScript do backend
+- `npm run start`: Inicia o servidor compilado em produção
+- `npx prisma migrate dev`: Cria e aplica migrações do banco
+- `npx prisma studio`: Interface gráfica para navegar no banco de dados
+- `npx tsx scripts/clear-test-data.ts`: Limpa todos os agendamentos e clientes de teste (preserva serviços, administradores e configurações)
+- `npx tsx scripts/generate-password-hash.ts "suasenha"`: Gera o hash de senha para novos administradores
 
 ### Frontend
 - `npm run dev`: Inicia o servidor de desenvolvimento
