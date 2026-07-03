@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma.js";
 import { addMinutes } from "date-fns";
 import { upsertCalendarEvent, deleteCalendarEvent } from "../lib/googleCalendar.js";
+import { sendAppointmentNotification } from "../lib/mailer.js";
 function hasClosedRangeConflict(startMinutes, endMinutes, ranges) {
     return ranges.some(range => {
         if (range.startTimeMinutes === null || range.endTimeMinutes === null) {
@@ -336,6 +337,19 @@ export const AppointmentController = {
             upsertCalendarEvent(appointment.id).catch((calError) => {
                 console.error("Erro ao sincronizar com Google Calendar:", calError);
             });
+            // Envio de e-mail de notificação (em segundo plano)
+            if (config.ownerEmail) {
+                sendAppointmentNotification({
+                    ownerEmail: config.ownerEmail,
+                    clientName: client.name,
+                    clientPhone: client.phone,
+                    serviceName: service.name,
+                    startTime: start,
+                    isManual: false
+                }).catch((emailError) => {
+                    console.error("Erro ao enviar e-mail de notificação (público):", emailError);
+                });
+            }
             return res.status(201).json(appointment);
         }
         catch (error) {
@@ -427,6 +441,23 @@ export const AppointmentController = {
             // Sincronização com o Google Calendar (em segundo plano)
             upsertCalendarEvent(appointment.id).catch((calError) => {
                 console.error("Erro ao sincronizar com Google Calendar:", calError);
+            });
+            // Envio de e-mail de notificação (em segundo plano)
+            prisma.studioConfig.findFirst().then((config) => {
+                if (config?.ownerEmail) {
+                    sendAppointmentNotification({
+                        ownerEmail: config.ownerEmail,
+                        clientName: client.name,
+                        clientPhone: client.phone,
+                        serviceName: service.name,
+                        startTime: start,
+                        isManual: true
+                    }).catch((emailError) => {
+                        console.error("Erro ao enviar e-mail de notificação (manual):", emailError);
+                    });
+                }
+            }).catch((configError) => {
+                console.error("Erro ao buscar configurações para enviar e-mail (manual):", configError);
             });
             return res.status(201).json(appointment);
         }
