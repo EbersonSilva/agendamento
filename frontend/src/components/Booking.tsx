@@ -71,6 +71,15 @@ export function Booking({ mode = 'public' }: BookingProps) {
   const [ownerWhatsApp, setOwnerWhatsApp] = useState('');
   const [allowPublicBookings, setAllowPublicBookings] = useState(true);
   const isAdmin = mode === 'admin';
+
+  interface Client {
+    id: number;
+    name: string;
+    phone: string;
+  }
+  const [clients, setClients] = useState<Client[]>([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
   // Admin: horário personalizado
   const [customTime, setCustomTime] = useState('');
   const [customTimeError, setCustomTimeError] = useState('');
@@ -143,6 +152,16 @@ export function Booking({ mode = 'public' }: BookingProps) {
       .catch(error => {
         console.error('❌ Erro ao carregar closed-dates:', error.message);
       });
+
+    if (isAdmin) {
+      api.get('/users')
+        .then(response => {
+          setClients(response.data || []);
+        })
+        .catch(error => {
+          console.error('❌ Erro ao carregar clientes:', error.message);
+        });
+    }
   }, []);
 
   // Gera uma lista de dias para os próximos 14 dias
@@ -239,6 +258,14 @@ export function Booking({ mode = 'public' }: BookingProps) {
       }
       window.dispatchEvent(new CustomEvent('pendingCountChanged'));
       setStep(4);
+
+      if (!isAdmin && ownerWhatsApp) {
+        const message = buildOwnerMessage();
+        const waLink = `https://wa.me/${ownerWhatsApp}?text=${encodeURIComponent(message)}`;
+        setTimeout(() => {
+          window.location.href = waLink;
+        }, 1500);
+      }
     } catch (err) {
       const error = err as AxiosError<{ error: string }>;
       if (isAdmin && error.response?.status === 409) {
@@ -425,13 +452,68 @@ export function Booking({ mode = 'public' }: BookingProps) {
               <form onSubmit={handleFinalSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-gray-400 ml-1">Nome Completo</label>
-                  <input 
-                    required 
-                    type="text" 
-                    value={clientName}
-                    onChange={e => setClientName(e.target.value)}
-                    placeholder="Ex: Maria Silva Santos"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" />
+                  <div className="relative">
+                    <input 
+                      required 
+                      type="text" 
+                      value={clientName}
+                      onChange={e => {
+                        setClientName(e.target.value);
+                        if (isAdmin) {
+                          setShowClientDropdown(true);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (isAdmin) {
+                          setShowClientDropdown(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (isAdmin) {
+                          setTimeout(() => setShowClientDropdown(false), 200);
+                        }
+                      }}
+                      placeholder="Ex: Maria Silva Santos"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none" 
+                    />
+                    
+                    {isAdmin && showClientDropdown && clientName.trim().length >= 2 && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        {clients.filter(c => 
+                          c.name.toLowerCase().includes(clientName.toLowerCase()) || 
+                          c.phone.includes(clientName.replace(/\D/g, ''))
+                        ).length > 0 ? (
+                          clients.filter(c => 
+                            c.name.toLowerCase().includes(clientName.toLowerCase()) || 
+                            c.phone.includes(clientName.replace(/\D/g, ''))
+                          ).map(client => (
+                            <button
+                              key={client.id}
+                              type="button"
+                              onClick={() => {
+                                setClientName(client.name);
+                                setPhone(formatPhone(client.phone));
+                                setShowClientDropdown(false);
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-zinc-100 last:border-0 flex justify-between items-center transition-colors"
+                            >
+                              <div>
+                                <p className="font-semibold text-zinc-800 text-sm">{client.name}</p>
+                                <p className="text-xs text-zinc-400 font-mono">{formatPhone(client.phone)}</p>
+                              </div>
+                              <span className="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-full">
+                                Cadastrado(a)
+                              </span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-4 text-xs text-zinc-400 text-center">
+                            Nenhum cliente cadastrado encontrado
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-gray-400 ml-1">WhatsApp</label>
