@@ -1,29 +1,5 @@
 import { google } from "googleapis";
 import { prisma } from "./prisma.js";
-const oauth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, process.env.GOOGLE_REDIRECT_URI);
-// Listen to token refresh events and save new tokens to database
-oauth2Client.on("tokens", async (tokens) => {
-    try {
-        const config = await prisma.googleConfig.findFirst();
-        if (!config)
-            return;
-        const dataToUpdate = {
-            accessToken: tokens.access_token,
-            expiryDate: new Date(tokens.expiry_date),
-        };
-        if (tokens.refresh_token) {
-            dataToUpdate.refreshToken = tokens.refresh_token;
-        }
-        await prisma.googleConfig.update({
-            where: { id: config.id },
-            data: dataToUpdate,
-        });
-        console.log("[Google Calendar] Access token refreshed and saved successfully.");
-    }
-    catch (error) {
-        console.error("[Google Calendar] Error saving refreshed tokens:", error);
-    }
-});
 /**
  * Gets an authenticated Google OAuth2 Client.
  * If credentials do not exist, returns null.
@@ -34,12 +10,36 @@ export async function getAuthenticatedClient() {
         if (!config) {
             return null;
         }
-        oauth2Client.setCredentials({
+        const client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, process.env.GOOGLE_REDIRECT_URI);
+        client.setCredentials({
             access_token: config.accessToken,
             refresh_token: config.refreshToken,
             expiry_date: config.expiryDate.getTime(),
         });
-        return oauth2Client;
+        // Listen to token refresh events on this client instance and save new tokens to database
+        client.on("tokens", async (tokens) => {
+            try {
+                const currentConfig = await prisma.googleConfig.findFirst();
+                if (!currentConfig)
+                    return;
+                const dataToUpdate = {
+                    accessToken: tokens.access_token,
+                    expiryDate: new Date(tokens.expiry_date),
+                };
+                if (tokens.refresh_token) {
+                    dataToUpdate.refreshToken = tokens.refresh_token;
+                }
+                await prisma.googleConfig.update({
+                    where: { id: currentConfig.id },
+                    data: dataToUpdate,
+                });
+                console.log("[Google Calendar] Access token refreshed and saved successfully.");
+            }
+            catch (error) {
+                console.error("[Google Calendar] Error saving refreshed tokens:", error);
+            }
+        });
+        return client;
     }
     catch (error) {
         console.error("[Google Calendar] Failed to authenticate client:", error);
